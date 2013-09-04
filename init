@@ -21,6 +21,7 @@ start() {
 stop() {
 	echo -n $"Shutting down pylon server: "
 	kill `cat $DIR/pylon.pid`
+    rm -f $DIR/pylon.pid
 	RETVAL=$?
 	echo
 	return $RETVAL
