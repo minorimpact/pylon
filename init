@@ -1,0 +1,50 @@
+#!/bin/sh
+#
+# chkconfig: 2345 26 74
+# description: 
+# processname: pylon
+
+# Source function library.
+. /etc/init.d/functions
+
+RETVAL=0
+DIR=~pgillan/pylon
+
+start() {
+	echo -n $"Starting up pylon server: "
+    $DIR/pylon -d -P $DIR/pylon.pid -L $DIR/pylon.log
+	RETVAL=$?
+	echo
+	return $RETVAL
+}
+
+stop() {
+	echo -n $"Shutting down pylon server: "
+	kill `cat $DIR/pylon.pid`
+	RETVAL=$?
+	echo
+	return $RETVAL
+}
+
+restart() {
+	stop
+	start
+}
+
+# See how we were called.
+case "$1" in
+  start)
+	start
+	;;
+  stop)
+	stop
+	;;
+  restart|reload)
+	restart
+	;;
+  *)
+	echo $"Usage: pylon {start|stop|restart}"
+	exit 1
+esac
+
+exit $RETVAL
