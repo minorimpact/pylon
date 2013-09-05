@@ -146,15 +146,15 @@ void addValue(valueList_t *vl, double value, time_t now, int type) {
             }
         }
 
-        if (isnan(total)) {
-            return;
-        }
-        if (nonnansteps > 0) {
-            double average = total / nonnansteps;
-            printf("valuelist.addValue:total=%f,nonnansteps=%d,average=%f\n",total,nonnansteps,average);
-            addValue(next, average, now, 0);
+        if (!isnan(total)) {
+            if (nonnansteps > 0) {
+                double average = total / nonnansteps;
+                printf("valuelist.addValue:total=%f,nonnansteps=%d,average=%f\n",total,nonnansteps,average);
+                addValue(next, average, now, 0);
+            }
         }
     }
+    printf("valuelist.addValue:done\n");
 }
 
 /* 

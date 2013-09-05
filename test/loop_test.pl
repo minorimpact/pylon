@@ -18,10 +18,14 @@ sub main {
         $uptime =~/load average: ([0-9\.]+),/;
         my $cpu = $1;
 
-        print "CPU:$cpu\n";
-        pylon("add|cpu|radon|$cpu");
+        print "CPU:$cpu:";
+        print pylon("add|cpu|radon|$cpu");
+        print "\n";
         print pylon("dump|cpu|radon");
-        pylon("add|time|radon|$now|counter");
+        print "TIME:$now:";
+        print pylon("add|time|radon|$now|counter");
+        print "\n";
+
         print pylon("dump|time|radon");
         sleep(60);
     }

@@ -192,6 +192,7 @@ char* parseCommand(char *buf, int len, unsigned long s_addr) {
         if (vl != NULL) {
             addValue(vl, atof(value), now, type);
         }
+        printf("pylon.parseCommand:OK\n");
         strcpy(output_buf, "OK\n");
         stats->adds++;
     } else if (strcmp(command, "load") == 0) {
@@ -459,6 +460,7 @@ void on_read(int fd, short ev, void *arg) {
     }
 
     char *output_buf = parseCommand(buf, len, client->client_s_addr);
+    printf("pylon.on_read:output_buf='%s'\n", output_buf);
 
     if (output_buf != NULL && strlen(output_buf) > 0) {
         bufferq = malloc(sizeof(struct bufferq));
