@@ -44,7 +44,7 @@
 /* Port to listen on. */
 #define SERVER_PORT 5555
 #define MAX_BUCKETS 6
-#define BUCKET_SIZE 576
+#define BUCKET_SIZE 575
 
 /* Length of each buffer in the buffer queue.  Also becomes the amount
  * of data we try to read per call to read(2). */
@@ -119,9 +119,7 @@ char* parseCommand(char *buf, int len, unsigned long s_addr) {
     }
 
     buf[len]=0;
-    //printf("buf: %s(%d,%d)\n",buf, len, strlen(buf));
     output_buf = malloc(BUFLEN*sizeof(u_char));
-    //printf("malloc output_buf(%p)\n", output_buf);
     output_buf[0] = 0;
 
     if (command_overflow_buffers->next != NULL) {
@@ -130,7 +128,6 @@ char* parseCommand(char *buf, int len, unsigned long s_addr) {
         while (ob != NULL) {
             if (ob->s_addr == s_addr) {
                 tmp = malloc((len + strlen(ob->command_overflow_buffer) + 1) * sizeof(char));
-                //printf("malloc tmp(%p)\n",tmp);
                 strcpy(tmp, ob->command_overflow_buffer);
                 strcat(tmp, buf);
                 if (ob->next != NULL) {
@@ -150,13 +147,10 @@ char* parseCommand(char *buf, int len, unsigned long s_addr) {
 
     if (tmp == NULL) {
         tmp = malloc((len+1) * sizeof(char));
-        //printf("malloc tmp(%p)\n",tmp);
-        //memcpy(tmp, buf, len);
         strcpy(tmp, buf);
     }
 
     if (strcmp(tmp + (strlen(tmp) - 4), "EOF\n") != 0) {
-        //printf("NO EOF\n");
 
         overflow_buffer_t *ob;
         ob = malloc(sizeof(overflow_buffer_t));
@@ -171,7 +165,6 @@ char* parseCommand(char *buf, int len, unsigned long s_addr) {
         command_overflow_buffers->next = ob;
         return output_buf;
     }
-    //printf("EOF\n");
 
     command = strtok(tmp, "|\n\r");
     if (strcmp(command, "add") == 0) {
@@ -192,7 +185,6 @@ char* parseCommand(char *buf, int len, unsigned long s_addr) {
         if (vl != NULL) {
             addValue(vl, atof(value), now, type);
         }
-        printf("pylon.parseCommand:OK\n");
         strcpy(output_buf, "OK\n");
         stats->adds++;
     } else if (strcmp(command, "load") == 0) {
@@ -386,14 +378,12 @@ char* parseCommand(char *buf, int len, unsigned long s_addr) {
         while (strcmp(server_id,"EOF") != 0) {
             int strpos = 0;
             getCheckList(server_index, server_id, tmp_str);
-            //printf("tmp_str:'%s'\n", tmp_str);
             for (i=0; i <= strlen(tmp_str);i++) {
                 if (*(tmp_str+i) == '|' || i == strlen(tmp_str)) {
                     int newlen = i - strpos;
                     strncpy(tmp2,tmp_str + strpos,newlen);
                     tmp2[newlen] = '|';
                     tmp2[newlen+1] = 0;
-                    //printf("tmp2:'%s'\n",tmp2);
                    
                     if (strstr(output_buf, tmp2) == NULL) {
                        strcat(output_buf, tmp2);
@@ -425,7 +415,6 @@ char* parseCommand(char *buf, int len, unsigned long s_addr) {
     strcat(output_buf, "\n");
     
     free(tmp);
-    //printf("parseCommand,output_buf(%p):'%s'\n", output_buf, output_buf);
     return output_buf;
 }
 
@@ -460,7 +449,6 @@ void on_read(int fd, short ev, void *arg) {
     }
 
     char *output_buf = parseCommand(buf, len, client->client_s_addr);
-    printf("pylon.on_read:output_buf='%s'\n", output_buf);
 
     if (output_buf != NULL && strlen(output_buf) > 0) {
         bufferq = malloc(sizeof(struct bufferq));
@@ -525,9 +513,7 @@ void on_accept(int fd, short ev, void *arg) {
 
     if (setnonblock(client_fd) < 0) warn("failed to set client socket non-blocking");
 
-    //client = calloc(1, sizeof(*client));
     client = malloc(sizeof(struct client));
-    //printf("malloc client(%p)\n",client);
     if (client == NULL) err(1, "malloc failed");
 
     event_set(&client->ev_read, client_fd, EV_READ|EV_PERSIST, on_read, client);

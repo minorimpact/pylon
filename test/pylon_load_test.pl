@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 
-use lib "/home/pgillan/git/site/lib";
+use lib "/site/lib";
 use Socket;
 use SERVERROLES::Server;
 use SERVERROLES::Graph;
@@ -10,7 +10,7 @@ use SERVERROLES::Serverroles;
 use RRDs; 
 use Time::HiRes qw(gettimeofday tv_interval);
 use Data::Dumper;
-require "../pylon.h";
+require "../pylon.pl";
 
 my $MAX_SERVER_COUNT = 3000;
 my $g_obj  = new SERVERROLES::Graph(1,1); #dummy object 
@@ -26,24 +26,19 @@ sub main {
     my $status;
     my $start;
 
-    open(LOG, ">pylon_test_results");
-    my $ofh = select LOG;
-    $| = 42;
-    select $ofh;
+    $| = 1;
 
     my $count = 0;
     my @servers = ();
     push @servers, $ROLES->getServer('ii38-33');
     push @servers, $ROLES->getServer('ii38-34');
     push @servers, $ROLES->getServer('ii52-27');
-    #push @servers, $ROLES->getServers({cluster=>'mail'});
-    push @servers, $ROLES->getServers({cluster=>'alt_out'});
+    push @servers, $ROLES->getServers({cluster=>'dev'});
     #push @servers, sort { rand() <=> rand(); } $ROLES->getServers();
     #push @servers, $ROLES->getServers();
+
     foreach my $server ( @servers ) {
         $server_id = $server->id();
-        #next unless ($server_id=~/^ii/);
-        #next if ($server_id =~/^(ii100-14|www.adultfriendfinder.com|ii100-18|ii102-10|ii102-11|ii102-8)$/);
         
         $status = pylon("status");
         $status =~/servers=(\d+)/;
@@ -52,7 +47,6 @@ sub main {
         last if ($count > $MAX_SERVER_COUNT);
 
         print "\n$server_id ";
-        print LOG "\n$server_id ";
         my %valuelist = ();
         my %size = ();
         my %step = ();
@@ -69,7 +63,6 @@ sub main {
                         if (!defined $val) {
                             $val = 'nan';
                         }
-                        #print "$val," if ($graph_id eq 'cpu');
                         $valuelist{$range}{"$graph_id,$sub_id"} .= "$val|";
                         if (!defined($first{$range}{"$graph_id,$sub_id"})) {
                             $first{$range}{"$graph_id,$sub_id"} = $time;
@@ -90,15 +83,20 @@ sub main {
             foreach my $graph_id (keys %{$valuelist{$range}}) {
                 my $list = $valuelist{$range}{$graph_id};
                 $list =~s/\|$//;
-                #print "load|$graph_id|$server_id|now|...\n"; #$list\n";
                 pylon("load|$graph_id|$server_id|$first{$range}{$graph_id}|$size{$range}{$graph_id}|$step{$range}{$graph_id}|$list");
             }
         }
         my $pylon_write_time = tv_interval($start);
 
+        $start = [gettimeofday];
+        foreach my $graph_id (keys %{$valuelist{'e-48h'}}) {
+            my $output = pylon("dump|$graph_id|$server_id");
+        }
+        my $pylon_read_time = tv_interval($start);
+
         $status = pylon("status");
         $status =~/servers=(\d+)/;
-        #my $count = $1;
+        my $server_count = $1;
         $status =~/size=(\d+)/;
         my $size = $1;
         $status =~/checks=(\d+)/;
@@ -118,25 +116,18 @@ sub loadAllFromRRD {
 
     my $rrds = ();
     my $graph_keys = $g_obj->graph_keys({ server_id => $server_id });
+    #my $graph_keys = ['cpu'];
     #print join(",",@$graph_keys) . "\n";
     my $now = time();
     foreach my $graph_id (@$graph_keys) {
         opendir(DIR, "$rrd_dir/$graph_id");
         foreach my $file (grep { /^$server_id,$graph_id/; } readdir(DIR)) {
-            #print "$file\n";
             my $sub_id = $graph_id;
             if ($file =~/$graph_id,(.+)\.rrd/) {
                 $sub_id = $1;
             }
             my $rrd_file = "$rrd_dir/$graph_id/$file";
 
-            #ds[iostat_throughput].type=GAUGE
-            #my $rrd_info = RRDs::info($rrd_file);
-            #my $type = $rrd_info->{"ds[$graph_id].type"};
-            #foreach my $key (sort keys %$rrd_info){
-            #    print "$key=$rrd_info->{$key}\n" if ($key =~/type/);
-            #}
-            #print "ds[$graph_id].type=$type\n";
             my ($time,$step,$names,$data) = RRDs::fetch($rrd_file, "AVERAGE", '-s', $range);
             my $ERR=RRDs::error;
             if (!$ERR) {
