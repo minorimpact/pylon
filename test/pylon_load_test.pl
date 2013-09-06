@@ -10,7 +10,7 @@ use SERVERROLES::Serverroles;
 use RRDs; 
 use Time::HiRes qw(gettimeofday tv_interval);
 use Data::Dumper;
-require "../pylon.pl";
+require "/home/pgillan/pylon/pylon.pl";
 
 my $MAX_SERVER_COUNT = 3000;
 my $g_obj  = new SERVERROLES::Graph(1,1); #dummy object 
@@ -30,10 +30,12 @@ sub main {
 
     my $count = 0;
     my @servers = ();
-    push @servers, $ROLES->getServer('ii38-33');
-    push @servers, $ROLES->getServer('ii38-34');
-    push @servers, $ROLES->getServer('ii52-27');
-    push @servers, $ROLES->getServers({cluster=>'dev'});
+    push @servers, $ROLES->getServer('ii102-12');
+    push @servers, $ROLES->getServer('ii110-23');
+    #push @servers, $ROLES->getServer('ii38-33');
+    #push @servers, $ROLES->getServer('ii38-34');
+    #push @servers, $ROLES->getServer('ii52-27');
+    push @servers, $ROLES->getServers({cluster=>'monitoring'});
     #push @servers, sort { rand() <=> rand(); } $ROLES->getServers();
     #push @servers, $ROLES->getServers();
 

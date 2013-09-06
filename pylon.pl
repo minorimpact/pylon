@@ -5,7 +5,7 @@ sub pylon {
 
     my ($remote,$port, $iaddr, $paddr, $proto);
 
-    $remote  = "localhost";
+    $remote  = "tivoli";
     $port    = 5555;
     $iaddr   = inet_aton($remote) || die "no host: $remote";
     $paddr   = sockaddr_in($port, $iaddr);
