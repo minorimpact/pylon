@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 
-require "pylon.pl";
+require "/home/pgillan/pylon/pylon.pl";
 my $pidfile = "/var/run/pylon_dumper.pid";
 my $pid = $$;
 
@@ -23,14 +23,16 @@ my $server_count = 0;
 print "starting dump\n";
 my $start_time = time();
 open(DUMP,">/tmp/pylon_dump.tmp");
-my $server_list = pylon('servers');
+my $server_list = pylon("servers");
 chomp($server_list);
 my @servers = split(/\|/, $server_list);
 
 foreach my $server_id (@servers) {
     print "$server_id\n";
     $server_count++;
-    my @checks = split(/\|/, pylon("checks|$server_id"));
+    my $checks =  pylon("checks|$server_id");
+    #print "checks|$server_id:$checks\n";
+    my @checks = split(/\|/, $checks);
 
     foreach my $check_id (@checks) {
         print "    $check_id\n";
@@ -47,4 +49,4 @@ rename("/tmp//pylon_dump.tmp","/tmp/pylon_dump");
 my ($dev,$ino,$mode,$nlink,$uid,$gid,$rdev,$size,$atime,$mtime,$ctime,$blksize,$blocks) = stat("/tmp/pylon_dump");
 
 print "dump complete.\nservers: $server_count  checks:$check_count  time:${dump_time}s size:$size\n";
-
+unlink($pidfile);

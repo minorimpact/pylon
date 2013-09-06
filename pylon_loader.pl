@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 
-require "./pylon.pl";
+require "/home/pgillan/pylon/pylon.pl";
 
 my %servers = ();
 my %checks = ();

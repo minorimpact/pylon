@@ -33,6 +33,10 @@ restart() {
 	start
 }
 
+status() {
+    $DIR/pylonstatus.pl
+}
+
 # See how we were called.
 case "$1" in
   start)
@@ -44,8 +48,11 @@ case "$1" in
   restart|reload)
 	restart
 	;;
+  status)
+    status
+    ;;
   *)
-	echo $"Usage: pylon {start|stop|restart}"
+	echo $"Usage: pylon {start|stop|restart|status}"
 	exit 1
 esac
 

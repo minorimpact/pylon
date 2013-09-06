@@ -1,5 +1,6 @@
 use Socket;
 
+
 sub pylon {
     my $command = shift;
 
@@ -11,30 +12,25 @@ sub pylon {
     $paddr   = sockaddr_in($port, $iaddr);
 
     $proto   = getprotobyname('tcp');
-    socket(SOCK, PF_INET, SOCK_STREAM, $proto) || die "socket: $!";
-    connect(SOCK, $paddr) || die "connect: $!";
+    socket(PSOCK, PF_INET, SOCK_STREAM, $proto) || die "socket: $!";
+    connect(PSOCK, $paddr) || die "connect: $!";
 
-    select(SOCK);
+    select(PSOCK);
     $| = 1;
     select(STDOUT);
     my $strlen = length($command);
-    print SOCK "$command|EOF\n";
+    print PSOCK "$command|EOF\n";
 
     my $response = '';
-    while (my $line = <SOCK>) {
+    while (my $line = <PSOCK>) {
         if ($line eq "\n") {
             last;
         }
         $response .= $line;
     }
-    #$response = <SOCK>;
-    close(SOCK);
+    close(PSOCK);
 
     return $response;
-}
-
-sub printstatus {
-    print pylon("status");
 }
 
 
