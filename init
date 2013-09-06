@@ -14,6 +14,7 @@ start() {
 	echo -n $"Starting up pylon server: "
     $DIR/pylon -d -P $DIR/pylon.pid -L $DIR/pylon.log
 	RETVAL=$?
+    $DIR/pylon_loader.pl
 	echo
 	return $RETVAL
 }
