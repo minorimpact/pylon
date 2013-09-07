@@ -16,7 +16,7 @@ void cleanupServerIndex(server_t *server_index, time_t now, int cleanup) {
         while(check != NULL) {
             valueList_t *vl = check->vl->next;
             if (vl->update_time < cutoff) {
-                printf("serverchec.cleanupServerIndex: deleting %s->%s (%d < %d)\n", server->name, check->name, vl->update_time, cutoff);
+                //printf("serverchec.cleanupServerIndex: deleting %s->%s (%d < %d)\n", server->name, check->name, vl->update_time, cutoff);
                 last_check->next = check->next;
                 deleteCheck(check);
                 check = last_check->next;
@@ -26,7 +26,7 @@ void cleanupServerIndex(server_t *server_index, time_t now, int cleanup) {
         }
 
         if (server->check->next == NULL) {
-            printf("serverchec.cleanupServerIndex: deleting %s (no checks)\n", server->name);
+            //printf("serverchec.cleanupServerIndex: deleting %s (no checks)\n", server->name);
             last_server->next = server->next;
             deleteServer(server);
             server = last_server->next;
@@ -36,7 +36,7 @@ void cleanupServerIndex(server_t *server_index, time_t now, int cleanup) {
     }
 }
 
-server_t *getServerByName(server_t *server_index, char *server_id) {
+server_t *getServerByName(server_t *server_index, char *server_id, int force) {
     server_t *server = server_index->next;
 
     // Scan the list for the server;
@@ -47,30 +47,29 @@ server_t *getServerByName(server_t *server_index, char *server_id) {
         server = server->next;
     }
 
-    server = malloc(sizeof(server_t));
-    //printf("malloc server(%p)\n", server);
-    server->name = malloc((strlen(server_id) + 1) * sizeof(char));
-    strcpy(server->name, server_id);
-    server->check = malloc(sizeof(check_t));
-    //printf("malloc server->checks(%p)\n", server->checks);
-    server->check->next = NULL;
+    if (force > 0) {
+        printf("servercheck.getServerByName:creating server_id=%s\n", server_id);
+        server = malloc(sizeof(server_t));
+        server->name = malloc((strlen(server_id) + 1) * sizeof(char));
+        strcpy(server->name, server_id);
+        server->check = malloc(sizeof(check_t));
+        server->check->next = NULL;
 
-    server->next = server_index->next;
-    server_index->next = server;
+        server->next = server_index->next;
+        server_index->next = server;
+    }
 
     return server;
 }
 
-check_t *getServerCheckByName(server_t *server_index, char *server_id, char *check_id) {
+check_t *getServerCheckByName(server_t *server_index, char *server_id, char *check_id, int force) {
     server_t *server;
-    printf("servercheck.getServerCheckByName: looking for server %s\n", server_id);
-    server = getServerByName(server_index, server_id);
-    printf("servercheck.getServerCheckByName: got server %s\n", server->name);
+    server = getServerByName(server_index, server_id, force);
     if (server == NULL) {
         return NULL;
     }
 
-    printf("servercheck.getServerCheckByName: looking for check %s\n", check_id);
+    //printf("servercheck.getServerCheckByName: looking for check %s\n", check_id);
     check_t *check = server->check->next;
     while(check != NULL) {
         if (strcmp(check->name, check_id) == 0) {
@@ -79,13 +78,16 @@ check_t *getServerCheckByName(server_t *server_index, char *server_id, char *che
         check = check->next;
     }
 
-    check = malloc(sizeof(check_t));
-    check->name = malloc((strlen(check_id)+1) * sizeof(char));
-    strcpy(check->name, check_id);
-    check->vl = malloc(sizeof(valueList_t));
-    check->vl->next = NULL;
-    check->next = server->check->next;
-    server->check->next = check;
+    if (force > 0) {
+        printf("servercheck.getServerCheckByName:creating check_id=%s for server_id=%s\n", check_id, server_id);
+        check = malloc(sizeof(check_t));
+        check->name = malloc((strlen(check_id)+1) * sizeof(char));
+        strcpy(check->name, check_id);
+        check->vl = malloc(sizeof(valueList_t));
+        check->vl->next = NULL;
+        check->next = server->check->next;
+        server->check->next = check;
+    }
 
     return check;
 }
@@ -189,11 +191,16 @@ char *getCheckList(server_t *server_index, char *server_id, char *tmp_str) {
     return tmp_str;
 }
 
-valueList_t *getValueList(server_t *server_index, char *server_id, char *check_id, time_t now, int range, vlopts_t *opts) {
-    check_t *check = getServerCheckByName(server_index, server_id, check_id);
+valueList_t *getValueList(server_t *server_index, char *server_id, char *check_id, time_t now, int range, vlopts_t *opts,int force) {
+    //printf("servercheck.getValueList: server_id=%s,check_id=%s,now=%d\n", server_id, check_id, now);
+    check_t *check = getServerCheckByName(server_index, server_id, check_id, force);
+
+    if (check == NULL) {
+        return NULL;
+    }
 
     valueList_t *vl = check->vl->next;
-    if (vl == NULL) {
+    if (vl == NULL && force > 0) {
         valueList_t *last_vl = check->vl;
         int i;
         for (i=0;i<opts->bucket_count;i++) {
@@ -202,30 +209,24 @@ valueList_t *getValueList(server_t *server_index, char *server_id, char *check_i
             last_vl = vl2;
         }
         vl = check->vl->next;
-    } else {
+    } else if (vl != NULL) {
         makeValueListCurrent(vl, now);
     }
 
     if (range == 0) {
         return vl;
     }
-    valueList_t *last_vl = NULL;
+
     while (vl != NULL) {
-        printf("servercheck.getValueList: comparing %d,%d (vl->first: %d) to %d\n", vl->size, vl->step, vl->first, range);
-        if  (vl->first <= range) {
-            return vl;
-        }
-        if (vl->next == NULL) {
+        //printf("servercheck.getValueList: comparing %d,%d (vl->first: %d) to %d\n", vl->size, vl->step, vl->first, range);
+        if  ((vl->first - vl->step) <= range || vl->next == NULL) {
             return vl;
         }
 
-        last_vl = vl;
         vl = vl->next;
-        if (vl != NULL) {
-            makeValueListCurrent(vl, now);
-        }
+        makeValueListCurrent(vl, now);
     }
-    return last_vl;
+    return vl;
 }
 
 void deleteServer(server_t *server) {
@@ -238,11 +239,8 @@ void deleteServer(server_t *server) {
             check = next;
         }
     }
-    //printf("free server->checks(%p)\n",server->checks);
     free(server->check);
-    //printf("free server->name(%p)\n",server->name);
     free(server->name);
-    //printf("free server(%p)\n",server);
     free(server);
 }
 
@@ -300,7 +298,8 @@ server_t *newServerIndex() {
 
 valueList_t *loadData(server_t *server_index, char *server_id, char *check_id, time_t first, int size, int step, double* data, time_t now, vlopts_t *opts) {
     // Get the first valuelist for this server/check.  If none exist, create a default.
-    check_t *check = getServerCheckByName(server_index, server_id, check_id);
+    printf("servercheck.loadData: server_id=%s,check_id=%s,size=%d,step=%d\n",server_id, check_id, size, step);
+    check_t *check = getServerCheckByName(server_index, server_id, check_id, 1);
     valueList_t *vl = check->vl->next;
     if (vl == NULL) {
         valueList_t *last_vl = check->vl;
@@ -318,21 +317,20 @@ valueList_t *loadData(server_t *server_index, char *server_id, char *check_id, t
     valueList_t *last_vl = check->vl;
 
     while (vl != NULL) {
-        printf("servercheck.loadData: checking vl->size=%d, vl->step=%d\n", vl->size, vl->step);
+        //printf("servercheck.loadData: checking vl->size=%d, vl->step=%d\n", vl->size, vl->step);
         if (step == vl->step) {
-            printf("servercheck.loadData: found a match\n");
             break;
         }
         if (step < vl->step) {
             if (last_vl == NULL) {
                 // Loading data that's smaller than the smallest valuelist, so insert a new one at the beginning.
-                printf("servercheck.loadData: creating %d,%d before %d,%d\n", size, step, vl->size, vl->step);
+                //printf("servercheck.loadData: creating %d,%d before %d,%d\n", size, step, vl->size, vl->step);
                 valueList_t *new_vl = newValueList(size, step, now);
                 new_vl->next = vl;
                 vl = new_vl;
                 last_vl->next = vl;
             } else {
-                printf("servercheck.loadData: creating %d,%d between %d,%d and %d,%d\n", size, step, last_vl->size, last_vl->step, vl->size, vl->step);
+                //printf("servercheck.loadData: creating %d,%d between %d,%d and %d,%d\n", size, step, last_vl->size, last_vl->step, vl->size, vl->step);
                 valueList_t *new_vl = newValueList(size, step, now);
                 new_vl->next = vl;
                 last_vl->next = new_vl;
@@ -345,11 +343,11 @@ valueList_t *loadData(server_t *server_index, char *server_id, char *check_id, t
         vl = vl->next;
     }
     if (vl == NULL) {
-        printf("servercheck.loadData: adding %d,%d to end of list\n", size, step);
+        //printf("servercheck.loadData: adding %d,%d to end of list\n", size, step);
         vl = newValueList(size, step, now);
         last_vl->next = vl;
     }
-    printf("servercheck.loadData: using %d,%d\n", size, step);
+    //printf("servercheck.loadData: using %d,%d\n", size, step);
     loadValueList(vl, first, size, step, data);
     return vl;
 }

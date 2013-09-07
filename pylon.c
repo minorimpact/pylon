@@ -181,11 +181,13 @@ char* parseCommand(char *buf, int len, unsigned long s_addr) {
             type = 1;
         }
 
-        vl = getValueList(server_index, server_id, check_id, now, 0, opts);
+        vl = getValueList(server_index, server_id, check_id, now, 0, opts, 1);
         if (vl != NULL) {
             addValue(vl, atof(value), now, type);
+            strcpy(output_buf, "OK\n");
+        } else { 
+            strcpy(output_buf, "FAIL\n");
         }
-        strcpy(output_buf, "OK\n");
         stats->adds++;
     } else if (strcmp(command, "load") == 0) {
         char *check_id = strtok(NULL, "|\n\r");
@@ -221,9 +223,9 @@ char* parseCommand(char *buf, int len, unsigned long s_addr) {
 
         printf("parseCommand: dump|%s|%s\n", check_id, server_id);
 
-        valueList_t *vl = getValueList(server_index, server_id, check_id, now, 0, opts);
+        valueList_t *vl = getValueList(server_index, server_id, check_id, now, 0, opts, 0);
         while (vl != NULL) {
-            printf("dumping %s, %s, %d\n", server_id, check_id, vl->step);
+            //printf("dumping %s, %s, %d\n", server_id, check_id, vl->step);
             double data[vl->size];
             getValueListData(vl, data);
             sprintf(tmp_str, "%s|", check_id);
@@ -267,68 +269,72 @@ char* parseCommand(char *buf, int len, unsigned long s_addr) {
         printf("parseCommand: get|%s|%s|%s\n", check_id, range_s, server_id);
         range = atoi(range_s);
 
-        // server list is arbitrary, and the first server in the list may not have check data
-        // we're looking for.
-        valueList_t *vl = NULL;
-        while (vl == NULL) {
-            vl = getValueList(server_index, server_id, check_id, now, range, opts);
-            if (vl == NULL) {
+        valueList_t *vl = getValueList(server_index, server_id, check_id, now, range, opts,0);
+
+        if (vl == NULL) {
+            server_id = strtok(NULL, "|\n\r");
+            while (vl==NULL && strcmp(server_id,"EOF") != 0 && server_id != NULL) {
+                //printf("pylon.parseCommand.%s:looking for first server that has a valuelist for %s\n",command, check_id);
+                vl = getValueList(server_index, server_id, check_id, now, range, opts,0);
                 server_id = strtok(NULL, "|\n\r");
-                if (strcmp(server_id,"EOF") == 0) {
-                    break;
-                }
-            } else {
-                break;
             }
         }
 
-        // Use the first server as a model for the data set.
-        if (strcmp(server_id,"EOF") != 0 && vl != NULL) {
+        if (vl != NULL) {
             // Initialize the data set to return.
             double data[vl->size];
             for (i=0; i<vl->size; i++) {
                 data[i] = 0.0/0.0;
             }
 
-            // Walk through the list of requested servers and build our data list.
-            while (strcmp(server_id,"EOF") != 0) {
-                valueList_t *vl2 = getValueList(server_index, server_id, check_id, now, range, opts);
-                if (vl2 != NULL && vl2->size == vl->size && vl2->first == vl->first) {
-                    addValueListToData(vl2, data);
-                    server_count++;
+            // Use the first server as a model for the data set.
+            if (strcmp(server_id,"EOF") != 0 && vl != NULL && server_id != NULL) {
+                // Walk through the list of requested servers and build our data list.
+                while (strcmp(server_id,"EOF") != 0 && server_id != NULL) {
+                    //printf("pylon.parseCommand.%s:looking for more sevrers that have a valuelist for %s\n",command, check_id);
+                    valueList_t *vl2 = getValueList(server_index, server_id, check_id, now, range, opts,0);
+                    if (vl2 != NULL && vl2->size == vl->size && vl2->step == vl->step) {
+                        //printf("pylon.parseCommand.%s:found %s\n",command, server_id);
+                        addValueListToData(vl2, data);
+                        server_count++;
+                    }
                     server_id = strtok(NULL, "|\n\r");
                 }
-            }
-            
-            if (range == 0) {
-                range = vl->first;
-            }
+                
+                if (range == 0) {
+                    range = vl->first;
+                }
 
-            for (i=0; i<vl->size; i++) {
-                if ((vl->first + (vl->step * i) > range)) {
-                    if (!first) {
-                        first = vl->first + (vl->step * i);
-                    }
-                    size++;
-                    if (strcmp(command, "avg") == 0) {
-                        data[i] = data[i]/server_count;
-                    }
-                    sprintf(tmp_str,"%f",data[i]);
-                    strcat(tmp_output_buf,tmp_str); 
-                    if (i<(vl->size - 1)) {
-                        strcat(tmp_output_buf,"|");
+                for (i=0; i<vl->size; i++) {
+                    if ((vl->first + (vl->step * i) > range)) {
+                        if (!first) {
+                            first = vl->first + (vl->step * i);
+                        }
+                        size++;
+                        if (strcmp(command, "avg") == 0) {
+                            data[i] = data[i]/server_count;
+                        }
+                        sprintf(tmp_str,"%f",data[i]);
+                        strcat(tmp_output_buf,tmp_str); 
+                        if (i<(vl->size - 1)) {
+                            strcat(tmp_output_buf,"|");
+                        }
                     }
                 }
-            }
 
-            sprintf(tmp_str, "%d|", first);
-            strcpy(output_buf, tmp_str);
-            sprintf(tmp_str, "%d|", size);
-            strcat(output_buf, tmp_str);
-            sprintf(tmp_str, "%d|", vl->step);
-            strcat(output_buf, tmp_str);
-            strcat(output_buf, tmp_output_buf);
-            strcat(output_buf,"\n");
+                sprintf(tmp_str, "%d|", first);
+                strcpy(output_buf, tmp_str);
+                sprintf(tmp_str, "%d|", size);
+                strcat(output_buf, tmp_str);
+                sprintf(tmp_str, "%d|", vl->step);
+                strcat(output_buf, tmp_str);
+                strcat(output_buf, tmp_output_buf);
+                strcat(output_buf,"\n");
+            }
+        } else {
+            // No data to return.
+            printf("pylon.parseCommand.%s:No data.\n",command);
+            strcpy(output_buf, "0|0|0\n");
         }
         free(tmp_output_buf);
         stats->gets++;
@@ -582,7 +588,7 @@ int main(int argc, char **argv) {
     opts->bucket_size = BUCKET_SIZE;
     opts->buckets = malloc(sizeof(int) * opts->max_buckets);
     opts->bucket_count = 4;
-    opts->cleanup =  50400;
+    opts->cleanup =  86400;
     opts->buckets[0] = 300;
     opts->buckets[1] = 1800;
     opts->buckets[2] = 7200;

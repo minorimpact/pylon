@@ -14,8 +14,7 @@
  */
 valueList_t *newValueList(int size, int step, time_t now) {
     valueList_t *vl = malloc(sizeof(valueList_t));
-    //printf("malloc vl(%p)\n", vl);
-    printf("valuelist.newValueList:size=%d,step=%d,now=%d\n", size, step, now); 
+    //printf("valuelist.newValueList:size=%d,step=%d,now=%d\n", size, step, now); 
 
     vl->first = now - (now % step) - (step * (size - 1));
     vl->step = step;
@@ -44,6 +43,9 @@ valueList_t *newValueList(int size, int step, time_t now) {
  *       1 = counter
  */
 void addValue(valueList_t *vl, double value, time_t now, int type) {
+    if (vl == NULL) {
+        return;
+    }
     makeValueListCurrent(vl,now);
     int last = vl->first + (vl->step * (vl->size - 1));
     int i;
@@ -155,6 +157,7 @@ void addValue(valueList_t *vl, double value, time_t now, int type) {
         }
     }
     printf("valuelist.addValue:done\n");
+    return;
 }
 
 /* 
@@ -163,22 +166,25 @@ void addValue(valueList_t *vl, double value, time_t now, int type) {
  * value list is in a position to be written to.
  */
 time_t makeValueListCurrent(valueList_t *vl, time_t now) {
+    if (vl == NULL) {
+        return 0;
+    }
     int last = vl->first + (vl->step * (vl->size - 1));
     int diff = now - last;
 
-    printf("valuelist.makeValueListCurrent: vl->first=%d,vl->step=%d,vl->size=%d,now=%d\n",vl->first,vl->step,vl->size,now);
+    //printf("valuelist.makeValueListCurrent: vl->first=%d,vl->step=%d,vl->size=%d,now=%d\n",vl->first,vl->step,vl->size,now);
     if (diff < vl->step) {
         return vl->first;
     } else {
-        printf("valuelist.makeValueListCurrent: diff=%d,vl->size=%d,vl->step=%d\n", diff, vl->size, vl->step); 
+        //printf("valuelist.makeValueListCurrent: diff=%d,vl->size=%d,vl->step=%d\n", diff, vl->size, vl->step); 
         int missing_steps = ((int) (diff/vl->step)) - 1;
-        printf("valuelist.makeValueListCurrent: missing steps = '%d'\n", missing_steps);
+        //printf("valuelist.makeValueListCurrent: missing steps = '%d'\n", missing_steps);
         if (missing_steps > vl->size) {
             missing_steps = vl->size;
             last = now - (now % vl->step) - (vl->step * (vl->size + 1));
         }
         if (missing_steps > 0) {
-            printf("valuelist.makeValueListCurrent: inserting %d missing value(s)\n", missing_steps);
+            //printf("valuelist.makeValueListCurrent: inserting %d missing value(s)\n", missing_steps);
 
             int j;
             for (j = 0; j < missing_steps; j++) {
@@ -191,7 +197,7 @@ time_t makeValueListCurrent(valueList_t *vl, time_t now) {
             }
         }
     }
-    printf("valuelist.makeValueListCurrent: vl->first = '%d'\n", vl->first);
+    //printf("valuelist.makeValueListCurrent: vl->first = '%d'\n", vl->first);
     return vl->first;
 }
 
@@ -199,9 +205,12 @@ time_t makeValueListCurrent(valueList_t *vl, time_t now) {
  * Reset a value list with a new complete set of data.
  */
 void loadValueList(valueList_t *vl, time_t first, int size, int step, double* data) {
+    if (vl == NULL) {
+        return;
+    }
     vl->update_time = first + (step * (size - 1));
     vl->update_value = data[size - 1];
-    printf("valuelist.loadValueList: setting vl->update_time = %d\n", vl->update_time);
+    //printf("valuelist.loadValueList: setting vl->update_time = %d\n", vl->update_time);
     //printf("free vl->data(%p)\n", vl->data);
     free(vl->data);
     vl->first = first;
@@ -232,6 +241,9 @@ double dataAverage(int size, double *data) {
  */
 void getValueListData(valueList_t *vl, double *data) {
     int i;
+    if (vl == NULL) {
+        return;
+    }
     double *head = vl->head;
     for (i=0; i<vl->size; i++) {
         head = head++;
@@ -247,6 +259,9 @@ void getValueListData(valueList_t *vl, double *data) {
  */
 void addValueListToData(valueList_t *vl, double *data) {
     int i;
+    if (vl == NULL) {
+        return;
+    }
     double *head = vl->head;
     for (i=0; i<vl->size; i++) {
         head = head++;
@@ -269,6 +284,9 @@ void addValueListToData(valueList_t *vl, double *data) {
  * Destroy a valuelist object.
  */
 void deleteValueList(valueList_t *vl) {
+    if (vl == NULL) {
+        return;
+    }
     printf("valueList.deleteValueList: step=%d\n", vl->step);
     free(vl->data);
     free(vl);
