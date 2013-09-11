@@ -49,13 +49,12 @@ void addValue(valueList_t *vl, double value, time_t now, int type) {
     makeValueListCurrent(vl,now);
     int last = vl->first + (vl->step * (vl->size - 1));
     int i;
-    //double counter_value = value;
 
-    printf("valuelist.addValue:value=%f,now=%d,step=%d,type=%d,first=%d,last=%d,update_time=%d,update_value=%f,update_counter_value=%f\n", value, now, vl->step,type,vl->first,last,vl->update_time,vl->update_value,vl->update_counter_value);
+    //printf("valuelist.addValue:value=%f,now=%d,step=%d,type=%d,first=%d,last=%d,update_time=%d,update_value=%f,update_counter_value=%f\n", value, now, vl->step,type,vl->first,last,vl->update_time,vl->update_value,vl->update_counter_value);
 
     // Reject any attempt to add a value before the "last" possible value of the value list.
     if (now <= last) {
-       printf("valuelist.addValue: too soon! %d <= %d\n", now, last);
+       //printf("valuelist.addValue: too soon! %d <= %d\n", now, last);
        return;
     }
 
@@ -63,7 +62,7 @@ void addValue(valueList_t *vl, double value, time_t now, int type) {
     // Never add a raw value to the value list.  The value added will be derived from this value and the next value.
     // If the valuelist has never been updated, or was last updated too long ago, store the new value and graph a nan instead.
     if (vl->update_time == 0 ||  (vl->update_time < (last - vl->step))) {
-        printf("valuelist.addValue:previous update too old, caching update\n");
+        //printf("valuelist.addValue:previous update too old, caching update\n");
         if (type == 1) {
             vl->update_value = 0.0/0.0;
             vl->update_counter_value = value;
@@ -80,15 +79,15 @@ void addValue(valueList_t *vl, double value, time_t now, int type) {
         double diff_value = value - vl->update_counter_value;
         vl->update_counter_value = value;
         if (diff_value < 0) {
-            printf("valuelist.addValue: counter rollover, resetting (diff_value=%f)\n",diff_value);
             // Rollover, start over.
+            //printf("valuelist.addValue: counter rollover, resetting (diff_value=%f)\n",diff_value);
             vl->update_value = 0.0/0.0;
             value = 0.0/0.0;
         } else if (isnan(vl->update_value)) {
             // We need to delay collect 'counter' data twice before we can graph it, since we don't have a proper 'value' until the second consecutive entry.  Counters won't actually start
             // to graph until the third consecutive entry.
             vl->update_value = (diff_value / diff_time);
-            printf("valuelist.addValue: second counter update, derived value=%f\n",vl->update_value);
+            //printf("valuelist.addValue: second counter update, derived value=%f\n",vl->update_value);
             value = 0.0/0.0;
         } else {
             value = (diff_value/diff_time);
@@ -98,14 +97,13 @@ void addValue(valueList_t *vl, double value, time_t now, int type) {
     int mod = now % vl->step;
     double graph_value;
     if (vl->update_value > value) {
-        //graph_value = (((vl->update_value - value) * ((vl->step + last) - vl->update_time)) / (now - vl->update_time)) + value;
         graph_value = (((vl->update_value - value) / (now - vl->update_time)) * (now - last)) + value;
     } else if (vl->update_value < value) {
         graph_value = (((value - vl->update_value) / (now - vl->update_time)) *  (now - last)) + vl->update_value;
     } else {
         graph_value = value;
     }
-    printf("valuelist.addValue:graph_value=%f\n", graph_value);
+    //printf("valuelist.addValue:graph_value=%f\n", graph_value);
 
     vl->head++;
     if (vl->head >= (vl->data + vl->size)) {
@@ -151,12 +149,12 @@ void addValue(valueList_t *vl, double value, time_t now, int type) {
         if (!isnan(total)) {
             if (nonnansteps > 0) {
                 double average = total / nonnansteps;
-                printf("valuelist.addValue:total=%f,nonnansteps=%d,average=%f\n",total,nonnansteps,average);
+                //printf("valuelist.addValue:total=%f,nonnansteps=%d,average=%f\n",total,nonnansteps,average);
                 addValue(next, average, now, 0);
             }
         }
     }
-    printf("valuelist.addValue:done\n");
+    //printf("valuelist.addValue:done\n");
     return;
 }
 

@@ -63,8 +63,7 @@ server_t *getServerByName(server_t *server_index, char *server_id, int force) {
 }
 
 check_t *getServerCheckByName(server_t *server_index, char *server_id, char *check_id, int force) {
-    server_t *server;
-    server = getServerByName(server_index, server_id, force);
+    server_t *server = getServerByName(server_index, server_id, force);
     if (server == NULL) {
         return NULL;
     }
@@ -144,10 +143,20 @@ int serverIndexSize(server_t *server_index) {
 
 char *getServerList(server_t *server_index) {
     server_t *server = server_index->next;
-    char *tmp_str = malloc(30720 * sizeof(char));
-    //printf("malloc tmp_str(%p)\n", tmp_str);
+    if (server == NULL) {
+        return NULL;
+    }
+
+    int server_size = 0;
+    while(server != NULL) {
+        server_size += (strlen(server->name) + 1);
+        server = server->next;
+    }
+
+    char *tmp_str = malloc((server_size + 1) * sizeof(char));
     tmp_str[0] = 0;
 
+    server = server_index->next;
     while(server != NULL) {
         strcat(tmp_str, server->name);
         strcat(tmp_str, "|");
@@ -160,35 +169,41 @@ char *getServerList(server_t *server_index) {
     return tmp_str;
 }
 
-char *getCheckList(server_t *server_index, char *server_id, char *tmp_str) {
-    server_t *server = server_index->next;
-    //char *tmp_str = malloc(30720 * sizeof(char));
-    //printf("malloc tmp_str(%p)\n", tmp_str);
-    tmp_str[0] = 0;
-
-    while(server != NULL) {
-        check_t *check = server->check->next;
-        if (strcmp(server->name, server_id) == 0) {
-            break;
-        }
-        server = server->next;
-    }
+char *getCheckList(server_t *server_index, char *server_id) {
+     server_t *server = getServerByName(server_index, server_id, 0);
 
     if (server == NULL) {
-        return tmp_str;
+        return NULL;
     }
    
     check_t *check = server->check->next;
+    if (check == NULL) {
+        return NULL;
+    }
+
+    int check_size = 0;
     while(check != NULL) {
-        strcat(tmp_str, check->name);
-        strcat(tmp_str, "|");
+        check_size += (strlen(check->name) + 1);
         check = check->next;
     }
-    // Cut the trailing pipe.
-    if (strlen(tmp_str) > 0) {
-        tmp_str[strlen(tmp_str) - 1] = 0;
+
+    if (check_size > 0) {
+        printf("servercheck.getCheckList:server_id=%s,check_size=%d\n", server_id, check_size);
+        char *tmp_str = malloc(sizeof(char) * (check_size+1));
+        tmp_str[0] = 0;
+        check = server->check->next;
+        while(check != NULL) {
+            strcat(tmp_str, check->name);
+            strcat(tmp_str, "|");
+            check = check->next;
+        }
+        // Cut the trailing pipe.
+        if (strlen(tmp_str) > 0) {
+            tmp_str[strlen(tmp_str) - 1] = 0;
+        }
+        return tmp_str;
     }
-    return tmp_str;
+    return NULL;
 }
 
 valueList_t *getValueList(server_t *server_index, char *server_id, char *check_id, time_t now, int range, vlopts_t *opts,int force) {

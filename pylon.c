@@ -375,42 +375,49 @@ char* parseCommand(char *buf, int len, unsigned long s_addr) {
 
     } else if (strcmp(command, "checks") == 0) {
         char *server_id = strtok(NULL, "|\n\r");
-        char tmp_str[10240];
         char tmp2[1024];
-        int i;
 
         printf("parseCommand: checks|%s\n", server_id);
 
-        while (strcmp(server_id,"EOF") != 0) {
-            int strpos = 0;
-            getCheckList(server_index, server_id, tmp_str);
-            for (i=0; i <= strlen(tmp_str);i++) {
-                if (*(tmp_str+i) == '|' || i == strlen(tmp_str)) {
-                    int newlen = i - strpos;
-                    strncpy(tmp2,tmp_str + strpos,newlen);
-                    tmp2[newlen] = '|';
-                    tmp2[newlen+1] = 0;
-                   
-                    if (strstr(output_buf, tmp2) == NULL) {
-                       strcat(output_buf, tmp2);
+        while (server_id != NULL && strcmp(server_id,"EOF") != 0) {
+            int i;
+            char *tmp_str = getCheckList(server_index, server_id);
+            if (tmp_str != NULL) {
+                int strpos = 0;
+                //printf("pylon.parseCommand.%s:strlen(tmp_str)=%d\n",command,strlen(tmp_str));
+                for (i=0; i <= strlen(tmp_str); i++) {
+                    if (*(tmp_str+i) == '|' || i == strlen(tmp_str)) {
+                        int newlen = i - strpos;
+                        strncpy(tmp2,tmp_str + strpos,newlen);
+                        tmp2[newlen] = '|';
+                        tmp2[newlen+1] = 0;
+                        if (strstr(output_buf, tmp2) == NULL) {
+                            strcat(output_buf, tmp2);
+                        }
+                        //printf("pylon.parseCommand.%s:tmp2=%s,i=%d,strpos=%d,strlen(tmp_str)=%d,strlen(output_buf)=%d,tmp_str=%s\n", command, tmp2, i, strpos, strlen(tmp_str), strlen(output_buf), tmp_str + strpos);
+                        i++;
+                        strpos = i;
                     }
-
-                    i++;
-                    strpos = i;
                 }
+                //printf("pylon.parseCommand.%s:pre free(tmp_str)\n", command);
+                free(tmp_str);
+                //printf("pylon.parseCommand.%s:post free(tmp_str)\n", command);
             }
             server_id = strtok(NULL, "|\n\r");
+            //printf("pylon.parseCommand.%s:server_id=%s\n",command,server_id);
         }
-
-        output_buf[strlen(output_buf) - 1] = '\n';
-        //strcat(output_buf, "\n");
+        //printf("pylon.parseCommand.%s:strlen(output_buf)=%d\n", command, strlen(output_buf));
+        output_buf[strlen(output_buf) - 1] = 0;
+        strcat(output_buf,"\n");
     } else if (strcmp(command, "servers") == 0) {
         char *tmp_str;
 
         printf("parseCommand: servers\n");
         tmp_str = getServerList(server_index);
-        strcpy(output_buf, tmp_str);
-        free(tmp_str);
+        if (tmp_str != NULL) {
+            strcpy(output_buf, tmp_str);
+            free(tmp_str);
+        }
         strcat(output_buf, "\n");
     } else {
         printf("parseCommand: unknown command|%s\n", command);
