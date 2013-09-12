@@ -177,16 +177,20 @@ char* parseCommand(char *buf, int len, unsigned long s_addr) {
 
         printf("parseCommand: add|%s|%s|%s|%s\n", check_id, server_id, value, type_s);
 
-        if (strcmp(type_s, "counter") == 0) {
-            type = 1;
-        }
+        if (server_id != NULL && value != NULL && strcmp(server_id,"EOF") !=0 && strcmp(value,"EOF") != 0) {
+            if (strcmp(type_s, "counter") == 0) {
+                type = 1;
+            }
 
-        vl = getValueList(server_index, server_id, check_id, now, 0, opts, 1);
-        if (vl != NULL) {
-            addValue(vl, atof(value), now, type);
-            strcpy(output_buf, "OK\n");
+            vl = getValueList(server_index, server_id, check_id, now, 0, opts, 1);
+            if (vl != NULL) {
+                addValue(vl, atof(value), now, type);
+                strcpy(output_buf, "OK\n");
+            } else { 
+                strcpy(output_buf, "FAIL\n");
+            }
         } else { 
-            strcpy(output_buf, "FAIL\n");
+            strcpy(output_buf, "INVALID\n");
         }
         stats->adds++;
     } else if (strcmp(command, "load") == 0) {
