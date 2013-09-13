@@ -355,19 +355,14 @@ char* parseCommand(char *buf, int len, unsigned long s_addr) {
         strcpy(output_buf, "OK\n");
 
     } else if (strcmp(command, "status") == 0) {
-        int server_count;
-        int check_count;
-        int size;
-        char tmp_str[255];
         printf("parseCommand: status\n");
-
-        server_count = getServerCount(server_index);
-        check_count = getCheckCount(server_index);
-        size = serverIndexSize(server_index);
-
+        char tmp_str[255];
+        int server_count = getServerCount(server_index);
+        int check_count = getCheckCount(server_index);
+        int size = serverIndexSize(server_index);
         int overflow_buffer_count = 0;
-        overflow_buffer_t *ob;
-        ob = command_overflow_buffers->next;
+        overflow_buffer_t *ob = command_overflow_buffers->next;
+
         while (ob != NULL) {
             overflow_buffer_count++;
             ob = ob->next;
