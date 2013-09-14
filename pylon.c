@@ -45,7 +45,7 @@
 #define SERVER_PORT 5555
 #define MAX_BUCKETS 6
 #define BUCKET_SIZE 575
-#define DUMP_TIMEOUT 5
+#define DUMP_TIMEOUT 60
 #define CLEANUP_TIMEOUT 3600
 
 /* Length of each buffer in the buffer queue.  Also becomes the amount
@@ -535,7 +535,7 @@ void dump_data(int fd, short ev, void *arg) {
         rename(dump_config->dump_file_tmp, dump_config->dump_file);
         dump_config->dump_fd = open(dump_config->dump_file_tmp, O_WRONLY|O_CREAT, 0755);
         if (dump_config->dump_fd < 0) {
-            printf("pylon.dump_data:Can't open %s for writing\n", dump_config->dump_file);
+            printf("pylon.dump_data:Can't open %s for writing\n", dump_config->dump_file_tmp);
             exit(-1);
         }
         dump_config->server = server_index->next;
@@ -544,7 +544,7 @@ void dump_data(int fd, short ev, void *arg) {
         printf("pylon.dump_data:Nothing to dump\n");
     } else {
         dump_config->tv.tv_sec = 0;
-        dump_config->tv.tv_usec = 10;
+        dump_config->tv.tv_usec = 100;
         printf("pylon.dump_data:dumping %s\n", dump_config->server->name);
         char *serverdump = dumpServer(dump_config->server, now);
         write(dump_config->dump_fd, serverdump, strlen(serverdump));

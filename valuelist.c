@@ -291,10 +291,10 @@ void deleteValueList(valueList_t *vl) {
     free(vl);
 }
 
-char *dumpValueList(valueList_t *vl, time_t now) {
-    char *output_buf = malloc(sizeof(char) * vl->size * 20);
+char *dumpValueList(valueList_t *vl, time_t now, char *output_buf) {
     char tmp_str[100];
 
+    printf("valuelist.dumpValueList:dumping %d,%d\n",vl->step, vl->size);
     makeValueListCurrent(vl, now);
     output_buf[0] = 0;
     sprintf(tmp_str, "%d|", vl->first);
@@ -313,6 +313,7 @@ char *dumpValueList(valueList_t *vl, time_t now) {
         strcat(output_buf,tmp_str);
     }
     output_buf[strlen(output_buf) -1] = '\n';
+    printf("valuelist.dumpValueList:done\n");
     return output_buf;
 }
 
