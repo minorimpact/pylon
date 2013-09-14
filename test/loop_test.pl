@@ -27,6 +27,6 @@ sub main {
         print "\n";
 
         print pylon("dump|time|radon");
-        sleep(60);
+        sleep(300);
     }
 }

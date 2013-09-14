@@ -13,7 +13,7 @@ DIR=~pgillan/pylon
 start() {
 	echo -n $"Starting up pylon server: "
     rm -f $DIR/pylon.log
-    $DIR/pylon -d -P $DIR/pylon.pid -L $DIR/pylon.log
+    $DIR/pylon -d -P $DIR/pylon.pid -L $DIR/pylon.log -F /tmp/pylon_dump
 	RETVAL=$?
 	#sleep 5;
     #$DIR/pylon_loader.pl

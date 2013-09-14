@@ -117,8 +117,8 @@ int getCheckCount(server_t *server_index) {
     return count;
 }
 
-int serverIndexSize(server_t *server_index) {
-    int size = sizeof(server_t);
+long int serverIndexSize(server_t *server_index) {
+    long int size = sizeof(server_t);
     server_t *server = server_index->next;
 
     while(server != NULL) {
@@ -365,5 +365,25 @@ valueList_t *loadData(server_t *server_index, char *server_id, char *check_id, t
     //printf("servercheck.loadData: using %d,%d\n", size, step);
     loadValueList(vl, first, size, step, data);
     return vl;
+}
+
+char *dumpServer(server_t *server, time_t now) {
+    check_t *check = server->check->next;
+    char *output_buf = malloc(sizeof(char) * 100000);
+    output_buf[0] = 0;
+    while (check != NULL) {
+        valueList_t *vl = check->vl->next;
+        while (vl != NULL) {
+            //printf("dumping %s, %s, %d\n", server->name, check->name, vl->step);
+            char *vldump = dumpValueList(vl, now);
+            sprintf(output_buf + strlen(output_buf), "%s|%s|%s",check->name, server->name, vldump);
+
+            free(vldump);
+
+            vl = vl->next;
+        }
+        check = check->next;
+    }
+    return output_buf;
 }
 

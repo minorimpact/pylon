@@ -45,6 +45,8 @@
 #define SERVER_PORT 5555
 #define MAX_BUCKETS 6
 #define BUCKET_SIZE 575
+#define DUMP_TIMEOUT 5
+#define CLEANUP_TIMEOUT 3600
 
 /* Length of each buffer in the buffer queue.  Also becomes the amount
  * of data we try to read per call to read(2). */
@@ -81,12 +83,22 @@ typedef struct overflow_buffer {
     struct overflow_buffer *next;
 } overflow_buffer_t;
 
+typedef struct dump_config {
+    char *dump_file;
+    char *dump_file_tmp;
+    struct event ev_dump;   
+    struct timeval tv;
+    int dump_fd;
+    server_t *server;
+} dump_config_t;
+
 overflow_buffer_t *command_overflow_buffers;
 server_t *server_index;
 vlopts_t *opts;
 stats_t *stats;
+dump_config_t *dump_config;
 time_t now;
-
+struct event_base *event_base;
 
 int setnonblock(int fd) {
     int flags;
@@ -113,10 +125,6 @@ char* parseCommand(char *buf, int len, unsigned long s_addr) {
 
     stats->commands++;
     tmp = NULL;
-
-    if (!(rand() % 1000)) {
-        cleanupServerIndex(server_index, now, opts->cleanup);
-    }
 
     buf[len]=0;
     output_buf = malloc(BUFLEN*sizeof(u_char));
@@ -359,7 +367,7 @@ char* parseCommand(char *buf, int len, unsigned long s_addr) {
         char tmp_str[255];
         int server_count = getServerCount(server_index);
         int check_count = getCheckCount(server_index);
-        int size = serverIndexSize(server_index);
+        long int size = serverIndexSize(server_index);
         int overflow_buffer_count = 0;
         overflow_buffer_t *ob = command_overflow_buffers->next;
 
@@ -511,6 +519,44 @@ void on_write(int fd, short ev, void *arg) {
     free(bufferq);
 }
 
+void cleanup_data (int fd, short ev, void *arg) {
+    cleanupServerIndex(server_index, now, opts->cleanup);
+    struct timeval tv;
+    tv.tv_sec = CLEANUP_TIMEOUT;
+    tv.tv_usec = 0;
+    event_add((struct event *)arg, &tv);
+}
+
+void dump_data(int fd, short ev, void *arg) {
+    dump_config_t *dump_config = arg;
+
+    if (dump_config->server == NULL) {
+        close(dump_config->dump_fd);
+        rename(dump_config->dump_file_tmp, dump_config->dump_file);
+        dump_config->dump_fd = open(dump_config->dump_file_tmp, O_WRONLY|O_CREAT, 0755);
+        if (dump_config->dump_fd < 0) {
+            printf("pylon.dump_data:Can't open %s for writing\n", dump_config->dump_file);
+            exit(-1);
+        }
+        dump_config->server = server_index->next;
+        dump_config->tv.tv_sec = DUMP_TIMEOUT;
+        dump_config->tv.tv_usec = 0;
+        printf("pylon.dump_data:Nothing to dump\n");
+    } else {
+        dump_config->tv.tv_sec = 0;
+        dump_config->tv.tv_usec = 10;
+        printf("pylon.dump_data:dumping %s\n", dump_config->server->name);
+        char *serverdump = dumpServer(dump_config->server, now);
+        write(dump_config->dump_fd, serverdump, strlen(serverdump));
+        fsync(dump_config->dump_fd);
+        free(serverdump);
+        dump_config->server = dump_config->server->next;
+    }
+
+    // Readd the event so it fires again. Don't know why I need to do this.
+    event_add(&dump_config->ev_dump, &dump_config->tv);
+}
+
 void on_accept(int fd, short ev, void *arg) {
     int client_fd;
     struct sockaddr_in client_addr;
@@ -548,6 +594,7 @@ void usage(void) {
            "              default: /var/run/pylon.pid\n"
            "-L <file>     log to <file>\n"
            "              default: /var/log/pylon.log\n"
+           "-F <file>     dump data to <file>\n"
         );
     return;
 }
@@ -600,14 +647,16 @@ int main(int argc, char **argv) {
     opts->buckets[2] = 7200;
     opts->buckets[3] = 86400;
 
+    dump_config = malloc(sizeof(dump_config_t));
+
     char *cvalue = NULL;
     bool do_daemonize = false;
     char *pid_file = "/var/run/pylon.pid";
     char *log_file = "/var/log/pylon.log";
+    char *dump_file = NULL;
 
-    struct event ev_accept;
 
-    while ((c = getopt(argc, argv, "hdP:s:c:L:")) != -1) {
+    while ((c = getopt(argc, argv, "hdP:s:c:L:F:")) != -1) {
         switch (c) {
             case 'h':
                 usage();
@@ -617,6 +666,9 @@ int main(int argc, char **argv) {
                 break;
             case 'P':
                 pid_file = optarg;
+                break;
+            case 'F':
+                dump_config->dump_file = optarg;
                 break;
             case 's':
                 if (opts->bucket_count >= opts->max_buckets) {
@@ -687,7 +739,7 @@ int main(int argc, char **argv) {
     command_overflow_buffers->next = NULL;
     command_overflow_buffers->prev = NULL;
 
-    event_init();
+    event_base = event_init();
 
     server_index = newServerIndex();
 
@@ -705,8 +757,29 @@ int main(int argc, char **argv) {
 
     if (setnonblock(listen_fd) < 0) err(1, "failed to set server socket to non-blocking");
 
+    struct event ev_accept;
     event_set(&ev_accept, listen_fd, EV_READ|EV_PERSIST, on_accept, NULL);
     event_add(&ev_accept, NULL);
+
+    // Add cleanup event
+    struct event ev_cleanup;
+    event_set(&ev_cleanup, -1, EV_TIMEOUT|EV_PERSIST, cleanup_data, &ev_cleanup);
+    struct timeval tv;
+    tv.tv_sec = CLEANUP_TIMEOUT;
+    tv.tv_usec = 0;
+    event_add(&ev_cleanup, &tv);
+
+    // Add dumper, if enabled.
+    if (dump_config->dump_file != NULL) {
+        dump_config->dump_file_tmp = malloc(sizeof(char) * (strlen(dump_config->dump_file) + 5));
+        strcpy(dump_config->dump_file_tmp, dump_config->dump_file);
+        strcat(dump_config->dump_file_tmp, ".tmp");
+
+        event_set(&dump_config->ev_dump, -1, EV_TIMEOUT|EV_PERSIST, dump_data, dump_config);
+        dump_config->tv.tv_sec = DUMP_TIMEOUT;
+        dump_config->tv.tv_usec = 0;
+        event_add(&dump_config->ev_dump, &dump_config->tv);
+    }
 
     event_dispatch();
 

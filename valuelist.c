@@ -1,6 +1,7 @@
 #include <malloc.h>
 #include <time.h> 
 #include <stdio.h>
+#include <string.h>
 #include "valuelist.h"
 
 /*
@@ -288,6 +289,31 @@ void deleteValueList(valueList_t *vl) {
     printf("valueList.deleteValueList: step=%d\n", vl->step);
     free(vl->data);
     free(vl);
+}
+
+char *dumpValueList(valueList_t *vl, time_t now) {
+    char *output_buf = malloc(sizeof(char) * vl->size * 20);
+    char tmp_str[100];
+
+    makeValueListCurrent(vl, now);
+    output_buf[0] = 0;
+    sprintf(tmp_str, "%d|", vl->first);
+    strcat(output_buf, tmp_str);
+    sprintf(tmp_str, "%d|", vl->size);
+    strcat(output_buf, tmp_str);
+    sprintf(tmp_str, "%d|", vl->step);
+    strcat(output_buf, tmp_str);
+
+    double data[vl->size];
+    getValueListData(vl, data);
+
+    int i;
+    for (i=0; i<vl->size; i++) {
+        sprintf(tmp_str,"%f|",data[i]);
+        strcat(output_buf,tmp_str);
+    }
+    output_buf[strlen(output_buf) -1] = '\n';
+    return output_buf;
 }
 
 
