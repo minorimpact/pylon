@@ -47,7 +47,7 @@
 #define BUCKET_SIZE 575
 #define DUMP_TIMEOUT 60
 #define CLEANUP_TIMEOUT 3600
-#define VERSION "0.0.1"
+#define VERSION "0.0.2"
 
 /* Length of each buffer in the buffer queue.  Also becomes the amount
  * of data we try to read per call to read(2). */
@@ -376,7 +376,7 @@ char* parseCommand(char *buf, int len, unsigned long s_addr) {
             overflow_buffer_count++;
             ob = ob->next;
         }
-        sprintf(tmp_str, "servers=%d checks=%d size=%d uptime=%d connections=%d commands=%d adds=%d gets=%d overflow_buffer_count=%d\n", server_count, check_count, size, (now - stats->start_time), stats->connections, stats->commands, stats->adds, stats->gets, overflow_buffer_count);
+        sprintf(tmp_str, "servers=%d checks=%d size=%ld uptime=%d connections=%d commands=%d adds=%d gets=%d overflow_buffer_count=%d\n", server_count, check_count, size, (now - stats->start_time), stats->connections, stats->commands, stats->adds, stats->gets, overflow_buffer_count);
         printf("%s\n", tmp_str);
 
         strcpy(output_buf, tmp_str);
