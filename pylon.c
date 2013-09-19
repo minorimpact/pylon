@@ -47,6 +47,7 @@
 #define BUCKET_SIZE 575
 #define DUMP_TIMEOUT 60
 #define CLEANUP_TIMEOUT 3600
+#define VERSION "0.0.1"
 
 /* Length of each buffer in the buffer queue.  Also becomes the amount
  * of data we try to read per call to read(2). */
@@ -416,6 +417,12 @@ char* parseCommand(char *buf, int len, unsigned long s_addr) {
         //printf("pylon.parseCommand.%s:strlen(output_buf)=%d\n", command, strlen(output_buf));
         output_buf[strlen(output_buf) - 1] = 0;
         strcat(output_buf,"\n");
+    } else if (strcmp(command, "version") == 0) {
+        char *tmp_str;
+
+        printf("parseCommand: version\n");
+        strcpy(output_buf, VERSION);
+        strcat(output_buf, "\n");
     } else if (strcmp(command, "servers") == 0) {
         char *tmp_str;
 
@@ -587,7 +594,8 @@ void on_accept(int fd, short ev, void *arg) {
 }
 
 void usage(void) {
-    printf("usage: pylon\n");
+    printf("usage: pylon <options>\n");
+    printf("version: %s\n", VERSION);
     printf("-h            print this message and exit\n"
            "-d            run as a daemon\n"
            "-P <file>     save PID in <file>, only used with -d option\n"
@@ -595,6 +603,7 @@ void usage(void) {
            "-L <file>     log to <file>\n"
            "              default: /var/log/pylon.log\n"
            "-F <file>     dump data to <file>\n"
+           "-v            output version information\n"
         );
     return;
 }
@@ -656,11 +665,16 @@ int main(int argc, char **argv) {
     char *dump_file = NULL;
 
 
-    while ((c = getopt(argc, argv, "hdP:s:c:L:F:")) != -1) {
+    while ((c = getopt(argc, argv, "hdP:s:c:L:F:v")) != -1) {
         switch (c) {
             case 'h':
                 usage();
                 exit(EXIT_SUCCESS);
+                break;
+            case 'v':
+                printf("%s\n",VERSION);
+                exit(0);
+                break;
             case 'd':
                 do_daemonize = true;
                 break;
