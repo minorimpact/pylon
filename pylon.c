@@ -47,7 +47,7 @@
 #define BUCKET_SIZE 575
 #define DUMP_TIMEOUT 60
 #define CLEANUP_TIMEOUT 3600
-#define VERSION "0.0.3"
+#define VERSION "0.0.4"
 
 /* Length of each buffer in the buffer queue.  Also becomes the amount
  * of data we try to read per call to read(2). */
@@ -59,6 +59,7 @@ typedef struct stats {
     int commands;
     int adds;
     int gets;
+    int pending;
     time_t start_time;
 } stats_t;
 
@@ -429,6 +430,7 @@ void on_read(int fd, short ev, void *arg) {
     u_char *buf;
     int len;
     stats->connections++;
+    stats->pending++;
 
     buf = malloc(BUFLEN * sizeof(u_char));
     if (buf == NULL) {
@@ -502,6 +504,9 @@ void on_write(int fd, short ev, void *arg) {
     TAILQ_REMOVE(&client->writeq, bufferq, entries);
     free(bufferq->buf);
     free(bufferq);
+    if (stats->pending > 0) {
+        stats->pending--;
+    }
 }
 
 void cleanup_data (int fd, short ev, void *arg) {
@@ -532,23 +537,25 @@ void dump_data(int fd, short ev, void *arg) {
         dump_config->tv.tv_sec = 0;
         dump_config->tv.tv_usec = 100;
 
-        if (dump_config->check == NULL) {
-            dump_config->server = dump_config->server->next;
-            if (dump_config->server !=NULL) {
-                dump_config->check = dump_config->server->check->next;
+        if (stats->pending < 1) {
+            if (dump_config->check == NULL) {
+                dump_config->server = dump_config->server->next;
+                if (dump_config->server !=NULL) {
+                    dump_config->check = dump_config->server->check->next;
+                } else {
+                    dump_config->check = NULL;
+                }
             } else {
-                dump_config->check = NULL;
-            }
-        } else {
-            printf("pylon.dump_data:dumping %s,%s\n", dump_config->server->name, dump_config->check->name);
-            char *checkdump = malloc(BUFLEN*sizeof(u_char));
-            checkdump[0] = 0;
+                printf("pylon.dump_data:dumping %s,%s\n", dump_config->server->name, dump_config->check->name);
+                char *checkdump = malloc(BUFLEN*sizeof(u_char));
+                checkdump[0] = 0;
 
-            dumpCheck(dump_config->server->name, dump_config->check, now, checkdump);
-            write(dump_config->dump_fd, checkdump, strlen(checkdump));
-            fsync(dump_config->dump_fd);
-            free(checkdump);
-            dump_config->check = dump_config->check->next;
+                dumpCheck(dump_config->server->name, dump_config->check, now, checkdump);
+                write(dump_config->dump_fd, checkdump, strlen(checkdump));
+                fsync(dump_config->dump_fd);
+                free(checkdump);
+                dump_config->check = dump_config->check->next;
+            }
         }
     }
 
@@ -581,7 +588,7 @@ void on_accept(int fd, short ev, void *arg) {
 
     TAILQ_INIT(&client->writeq);
 
-    printf("Accepted connection from %s\n", inet_ntoa(client_addr.sin_addr));
+    printf("Accepted connection from %s (%d)\n", inet_ntoa(client_addr.sin_addr),stats->pending);
     client->client_s_addr = client_addr.sin_addr.s_addr;
 }
 
