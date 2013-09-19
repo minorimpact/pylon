@@ -47,7 +47,7 @@
 #define BUCKET_SIZE 575
 #define DUMP_TIMEOUT 60
 #define CLEANUP_TIMEOUT 3600
-#define VERSION "0.0.2"
+#define VERSION "0.0.3"
 
 /* Length of each buffer in the buffer queue.  Also becomes the amount
  * of data we try to read per call to read(2). */
@@ -91,6 +91,7 @@ typedef struct dump_config {
     struct timeval tv;
     int dump_fd;
     server_t *server;
+    check_t *check;
 } dump_config_t;
 
 overflow_buffer_t *command_overflow_buffers;
@@ -232,38 +233,15 @@ char* parseCommand(char *buf, int len, unsigned long s_addr) {
     } else if (strcmp(command, "dump") == 0) {
         char *check_id = strtok(NULL, "|\n\r");
         char *server_id = strtok(NULL, "|\n\r");
-        char tmp_str[100];
 
         printf("parseCommand: dump|%s|%s\n", check_id, server_id);
 
         valueList_t *vl = getValueList(server_index, server_id, check_id, now, 0, opts, 0);
         while (vl != NULL) {
             //printf("dumping %s, %s, %d\n", server_id, check_id, vl->step);
-            double data[vl->size];
-            getValueListData(vl, data);
-            sprintf(tmp_str, "%s|", check_id);
-            strcat(output_buf, tmp_str);
-            sprintf(tmp_str, "%s|", server_id);
-            strcat(output_buf, tmp_str);
-            sprintf(tmp_str, "%d|", vl->first);
-            strcat(output_buf, tmp_str);
-            sprintf(tmp_str, "%d|", vl->size);
-            strcat(output_buf, tmp_str);
-            sprintf(tmp_str, "%d|", vl->step);
-            strcat(output_buf, tmp_str);
-
-            for (i=0; i<vl->size; i++) {
-                sprintf(tmp_str,"%f|",data[i]);
-                strcat(output_buf,tmp_str); 
-            }
-
+            dumpValueList(server_id, check_id, vl, now, output_buf);
             vl = vl->next;
-            if (vl != NULL) {
-                makeValueListCurrent(vl, now);
-            }
-            output_buf[strlen(output_buf) -1] = '\n';
         }
-        strcat(output_buf,"\n");
     } else if (strcmp(command, "deleteserver") == 0) {
         char *server_id = strtok(NULL, "|\n\r");
         printf("parseCommand: delete|%s\n", server_id);
@@ -546,18 +524,32 @@ void dump_data(int fd, short ev, void *arg) {
             exit(-1);
         }
         dump_config->server = server_index->next;
+        dump_config->check = dump_config->server->check->next;
         dump_config->tv.tv_sec = DUMP_TIMEOUT;
         dump_config->tv.tv_usec = 0;
         printf("pylon.dump_data:Nothing to dump\n");
     } else {
         dump_config->tv.tv_sec = 0;
         dump_config->tv.tv_usec = 100;
-        printf("pylon.dump_data:dumping %s\n", dump_config->server->name);
-        char *serverdump = dumpServer(dump_config->server, now);
-        write(dump_config->dump_fd, serverdump, strlen(serverdump));
-        fsync(dump_config->dump_fd);
-        free(serverdump);
-        dump_config->server = dump_config->server->next;
+
+        if (dump_config->check == NULL) {
+            dump_config->server = dump_config->server->next;
+            if (dump_config->server !=NULL) {
+                dump_config->check = dump_config->server->check->next;
+            } else {
+                dump_config->check = NULL;
+            }
+        } else {
+            printf("pylon.dump_data:dumping %s,%s\n", dump_config->server->name, dump_config->check->name);
+            char *checkdump = malloc(BUFLEN*sizeof(u_char));
+            checkdump[0] = 0;
+
+            dumpCheck(dump_config->server->name, dump_config->check, now, checkdump);
+            write(dump_config->dump_fd, checkdump, strlen(checkdump));
+            fsync(dump_config->dump_fd);
+            free(checkdump);
+            dump_config->check = dump_config->check->next;
+        }
     }
 
     // Readd the event so it fires again. Don't know why I need to do this.

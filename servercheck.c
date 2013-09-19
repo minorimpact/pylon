@@ -367,25 +367,23 @@ valueList_t *loadData(server_t *server_index, char *server_id, char *check_id, t
     return vl;
 }
 
-char *dumpServer(server_t *server, time_t now) {
-    char *output_buf = malloc(sizeof(char) * 1024000 * 10);
-    char *vldump = malloc(575*20);
-    output_buf[0] = 0;
+void dumpCheck(char *servername, check_t *check, time_t now, char *output_buf) {
+    //printf("servercheck.dumpCheck:dumping %s\n", check->name);
+    valueList_t *vl = check->vl->next;
+    while (vl != NULL) {
+        dumpValueList(servername, check->name, vl, now, output_buf);
+        vl = vl->next;
+    }
+    //printf("servercheck.dumpCheck:done\n");
+}
+
+void dumpServer(server_t *server, time_t now, char *output_buf) {
+    //printf("servercheck.dumpServer:dumping %s\n", server->name);
     check_t *check = server->check->next;
     while (check != NULL) {
-        valueList_t *vl = check->vl->next;
-        while (vl != NULL) {
-            printf("servercheck.dumpServer:dumping %s, %s, %d\n", server->name, check->name, vl->step);
-            dumpValueList(vl, now, vldump);
-            sprintf(output_buf + strlen(output_buf), "%s|%s|%s",check->name, server->name, vldump);
-            printf("servercheck.dumpServer:strlen(output_buf)=%d\n", strlen(output_buf));
-
-            vl = vl->next;
-        }
+        dumpCheck(server->name, check, now, output_buf);
         check = check->next;
     }
-    printf("servercheck.dumpServer:done\n");
-    free(vldump);
-    return output_buf;
+    //printf("servercheck.dumpServer:done\n");
 }
 

@@ -291,30 +291,19 @@ void deleteValueList(valueList_t *vl) {
     free(vl);
 }
 
-char *dumpValueList(valueList_t *vl, time_t now, char *output_buf) {
-    char tmp_str[100];
-
-    printf("valuelist.dumpValueList:dumping %d,%d\n",vl->step, vl->size);
+void dumpValueList(char *server, char *check, valueList_t *vl, time_t now, char *output_buf) {
+    //printf("valuelist.dumpValueList:dumping %d,%d\n",vl->step, vl->size);
     makeValueListCurrent(vl, now);
-    output_buf[0] = 0;
-    sprintf(tmp_str, "%d|", vl->first);
-    strcat(output_buf, tmp_str);
-    sprintf(tmp_str, "%d|", vl->size);
-    strcat(output_buf, tmp_str);
-    sprintf(tmp_str, "%d|", vl->step);
-    strcat(output_buf, tmp_str);
-
+    sprintf(output_buf + strlen(output_buf), "%s|%s|%d|%d|%d|%d|", server, check, vl->first, vl->first, vl->size, vl->step);
     double data[vl->size];
     getValueListData(vl, data);
 
     int i;
     for (i=0; i<vl->size; i++) {
-        sprintf(tmp_str,"%f|",data[i]);
-        strcat(output_buf,tmp_str);
+        sprintf(output_buf + strlen(output_buf),"%f|",data[i]);
     }
     output_buf[strlen(output_buf) -1] = '\n';
-    printf("valuelist.dumpValueList:done\n");
-    return output_buf;
+    //printf("valuelist.dumpValueList:done\n");
 }
 
 
