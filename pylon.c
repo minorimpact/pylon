@@ -449,11 +449,10 @@ void on_read(int fd, short ev, void *arg) {
         free(buf);
         return;
     } else if (len < 0) {
-        printf("Socket failure, disconnecting client: %s",
+        printf("Socket failure, disconnecting client: %s", strerror(errno));
         if (stats->pending > 0) {
             stats->pending--;
         }
-        strerror(errno));
         close(fd);
         event_del(&client->ev_read);
         free(client);
