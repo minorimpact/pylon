@@ -47,7 +47,7 @@
 #define BUCKET_SIZE 575
 #define DUMP_TIMEOUT 60
 #define CLEANUP_TIMEOUT 3600
-#define VERSION "0.0.4"
+#define VERSION "0.0.5"
 
 /* Length of each buffer in the buffer queue.  Also becomes the amount
  * of data we try to read per call to read(2). */
@@ -440,6 +440,9 @@ void on_read(int fd, short ev, void *arg) {
     len = read(fd, buf, BUFLEN);
     if (len == 0) {
         printf("Client disconnected.\n");
+        if (stats->pending > 0) {
+            stats->pending--;
+        }
         close(fd);
         event_del(&client->ev_read);
         free(client);
@@ -447,6 +450,9 @@ void on_read(int fd, short ev, void *arg) {
         return;
     } else if (len < 0) {
         printf("Socket failure, disconnecting client: %s",
+        if (stats->pending > 0) {
+            stats->pending--;
+        }
         strerror(errno));
         close(fd);
         event_del(&client->ev_read);
@@ -456,6 +462,9 @@ void on_read(int fd, short ev, void *arg) {
     }
 
     char *output_buf = parseCommand(buf, len, client->client_s_addr);
+    if (stats->pending > 0) {
+        stats->pending--;
+    }
 
     if (output_buf != NULL && strlen(output_buf) > 0) {
         bufferq = malloc(sizeof(struct bufferq));
@@ -504,9 +513,6 @@ void on_write(int fd, short ev, void *arg) {
     TAILQ_REMOVE(&client->writeq, bufferq, entries);
     free(bufferq->buf);
     free(bufferq);
-    if (stats->pending > 0) {
-        stats->pending--;
-    }
 }
 
 void cleanup_data (int fd, short ev, void *arg) {
