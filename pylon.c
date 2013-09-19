@@ -47,7 +47,7 @@
 #define BUCKET_SIZE 575
 #define DUMP_TIMEOUT 60
 #define CLEANUP_TIMEOUT 3600
-#define VERSION "0.0.5"
+#define VERSION "0.0.6"
 
 /* Length of each buffer in the buffer queue.  Also becomes the amount
  * of data we try to read per call to read(2). */
@@ -461,9 +461,6 @@ void on_read(int fd, short ev, void *arg) {
     }
 
     char *output_buf = parseCommand(buf, len, client->client_s_addr);
-    if (stats->pending > 0) {
-        stats->pending--;
-    }
 
     if (output_buf != NULL && strlen(output_buf) > 0) {
         bufferq = malloc(sizeof(struct bufferq));
@@ -487,6 +484,10 @@ void on_write(int fd, short ev, void *arg) {
     struct client *client = (struct client *)arg;
     struct bufferq *bufferq;
     int len;
+
+    if (stats->pending > 0) {
+        stats->pending--;
+    }
 
     bufferq = TAILQ_FIRST(&client->writeq);
     if (bufferq == NULL) {
