@@ -45,9 +45,9 @@
 #define SERVER_PORT 5555
 #define MAX_BUCKETS 6
 #define BUCKET_SIZE 575
-#define DUMP_TIMEOUT 60
+#define DUMP_TIMEOUT 500000
 #define CLEANUP_TIMEOUT 3600
-#define VERSION "0.0.6"
+#define VERSION "0.0.7"
 
 /* Length of each buffer in the buffer queue.  Also becomes the amount
  * of data we try to read per call to read(2). */
@@ -162,7 +162,6 @@ char* parseCommand(char *buf, int len, unsigned long s_addr) {
     }
 
     if (strcmp(tmp + (strlen(tmp) - 4), "EOF\n") != 0) {
-
         overflow_buffer_t *ob;
         ob = malloc(sizeof(overflow_buffer_t));
         ob->s_addr = s_addr;
@@ -430,7 +429,6 @@ void on_read(int fd, short ev, void *arg) {
     u_char *buf;
     int len;
     stats->connections++;
-    stats->pending++;
 
     buf = malloc(BUFLEN * sizeof(u_char));
     if (buf == NULL) {
@@ -440,9 +438,6 @@ void on_read(int fd, short ev, void *arg) {
     len = read(fd, buf, BUFLEN);
     if (len == 0) {
         printf("Client disconnected.\n");
-        if (stats->pending > 0) {
-            stats->pending--;
-        }
         close(fd);
         event_del(&client->ev_read);
         free(client);
@@ -450,15 +445,13 @@ void on_read(int fd, short ev, void *arg) {
         return;
     } else if (len < 0) {
         printf("Socket failure, disconnecting client: %s", strerror(errno));
-        if (stats->pending > 0) {
-            stats->pending--;
-        }
         close(fd);
         event_del(&client->ev_read);
         free(client);
         free(buf);
         return;
     }
+    stats->pending++;
 
     char *output_buf = parseCommand(buf, len, client->client_s_addr);
 
@@ -485,9 +478,6 @@ void on_write(int fd, short ev, void *arg) {
     struct bufferq *bufferq;
     int len;
 
-    if (stats->pending > 0) {
-        stats->pending--;
-    }
 
     bufferq = TAILQ_FIRST(&client->writeq);
     if (bufferq == NULL) {
@@ -513,6 +503,9 @@ void on_write(int fd, short ev, void *arg) {
     TAILQ_REMOVE(&client->writeq, bufferq, entries);
     free(bufferq->buf);
     free(bufferq);
+    if (stats->pending > 0) {
+        stats->pending--;
+    }
 }
 
 void cleanup_data (int fd, short ev, void *arg) {
@@ -526,24 +519,23 @@ void cleanup_data (int fd, short ev, void *arg) {
 void dump_data(int fd, short ev, void *arg) {
     dump_config_t *dump_config = arg;
 
-    if (dump_config->server == NULL) {
-        close(dump_config->dump_fd);
-        rename(dump_config->dump_file_tmp, dump_config->dump_file);
-        dump_config->dump_fd = open(dump_config->dump_file_tmp, O_WRONLY|O_CREAT, 0755);
-        if (dump_config->dump_fd < 0) {
-            printf("pylon.dump_data:Can't open %s for writing\n", dump_config->dump_file_tmp);
-            exit(-1);
-        }
-        dump_config->server = server_index->next;
-        dump_config->check = dump_config->server->check->next;
-        dump_config->tv.tv_sec = DUMP_TIMEOUT;
-        dump_config->tv.tv_usec = 0;
-        printf("pylon.dump_data:Nothing to dump\n");
-    } else {
-        dump_config->tv.tv_sec = 0;
-        dump_config->tv.tv_usec = 100;
-
-        if (stats->pending < 1) {
+    if (stats->pending < 1) {
+        if (dump_config->server == NULL) {
+            close(dump_config->dump_fd);
+            rename(dump_config->dump_file_tmp, dump_config->dump_file);
+            dump_config->dump_fd = open(dump_config->dump_file_tmp, O_WRONLY|O_CREAT, 0755);
+            if (dump_config->dump_fd < 0) {
+                printf("pylon.dump_data:Can't open %s for writing\n", dump_config->dump_file_tmp);
+                exit(-1);
+            }
+            dump_config->server = server_index->next;
+            if (dump_config->server != NULL) {
+                dump_config->check = dump_config->server->check->next;
+            } else {
+                dump_config->check = NULL;
+            }
+            printf("pylon.dump_data:Nothing to dump\n");
+        } else {
             if (dump_config->check == NULL) {
                 dump_config->server = dump_config->server->next;
                 if (dump_config->server !=NULL) {
@@ -565,6 +557,8 @@ void dump_data(int fd, short ev, void *arg) {
         }
     }
 
+    dump_config->tv.tv_sec = 0;
+    dump_config->tv.tv_usec = DUMP_TIMEOUT;
     // Readd the event so it fires again. Don't know why I need to do this.
     event_add(&dump_config->ev_dump, &dump_config->tv);
 }
@@ -795,8 +789,10 @@ int main(int argc, char **argv) {
         strcat(dump_config->dump_file_tmp, ".tmp");
 
         event_set(&dump_config->ev_dump, -1, EV_TIMEOUT|EV_PERSIST, dump_data, dump_config);
-        dump_config->tv.tv_sec = DUMP_TIMEOUT;
-        dump_config->tv.tv_usec = 0;
+        //dump_config->tv.tv_sec = 10;
+        //dump_config->tv.tv_usec = 0;
+        dump_config->tv.tv_sec = 0;
+        dump_config->tv.tv_usec = DUMP_TIMEOUT;
         event_add(&dump_config->ev_dump, &dump_config->tv);
     }
 
