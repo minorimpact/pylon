@@ -45,9 +45,9 @@
 #define SERVER_PORT 5555
 #define MAX_BUCKETS 6
 #define BUCKET_SIZE 575
-#define DUMP_TIMEOUT 500000
+#define DUMP_TIMEOUT 250000
 #define CLEANUP_TIMEOUT 3600
-#define VERSION "0.0.7"
+#define VERSION "0.0.0-11"
 
 /* Length of each buffer in the buffer queue.  Also becomes the amount
  * of data we try to read per call to read(2). */
@@ -88,6 +88,7 @@ typedef struct overflow_buffer {
 typedef struct dump_config {
     char *dump_file;
     char *dump_file_tmp;
+    char *checkdump;
     struct event ev_dump;   
     struct timeval tv;
     int dump_fd;
@@ -185,7 +186,7 @@ char* parseCommand(char *buf, int len, unsigned long s_addr) {
         valueList_t *vl = NULL;
         int type = 0;
 
-        printf("parseCommand: add|%s|%s|%s|%s\n", check_id, server_id, value, type_s);
+        //printf("parseCommand: add|%s|%s|%s|%s\n", check_id, server_id, value, type_s);
 
         if (server_id != NULL && value != NULL && strcmp(server_id,"EOF") !=0 && strcmp(value,"EOF") != 0) {
             if (strcmp(type_s, "counter") == 0) {
@@ -214,7 +215,7 @@ char* parseCommand(char *buf, int len, unsigned long s_addr) {
         time_t first = atoi(first_s);
         int size = atoi(size_s);
         int step = atoi(step_s);
-        printf("parseCommand: load|%s|%s|%d|%d|%d\n", check_id, server_id, first, size, step);
+        //printf("parseCommand: load|%s|%s|%d|%d|%d\n", check_id, server_id, first, size, step);
 
         double *data = malloc(size*sizeof(double));
         //printf("malloc data(%p)\n", data);
@@ -234,7 +235,7 @@ char* parseCommand(char *buf, int len, unsigned long s_addr) {
         char *check_id = strtok(NULL, "|\n\r");
         char *server_id = strtok(NULL, "|\n\r");
 
-        printf("parseCommand: dump|%s|%s\n", check_id, server_id);
+        //printf("parseCommand: dump|%s|%s\n", check_id, server_id);
 
         valueList_t *vl = getValueList(server_index, server_id, check_id, now, 0, opts, 0);
         while (vl != NULL) {
@@ -244,7 +245,7 @@ char* parseCommand(char *buf, int len, unsigned long s_addr) {
         }
     } else if (strcmp(command, "deleteserver") == 0) {
         char *server_id = strtok(NULL, "|\n\r");
-        printf("parseCommand: delete|%s\n", server_id);
+        //printf("parseCommand: delete|%s\n", server_id);
         deleteServerByName(server_index, server_id);
     } else if (strcmp(command, "get") == 0 || strcmp(command, "avg") == 0) {
         char *check_id = strtok(NULL, "|\n\r");
@@ -257,7 +258,7 @@ char* parseCommand(char *buf, int len, unsigned long s_addr) {
         int size = 0;
         int server_count = 0;
 
-        printf("parseCommand: get|%s|%s|%s\n", check_id, range_s, server_id);
+        //printf("parseCommand: get|%s|%s|%s\n", check_id, range_s, server_id);
         range = atoi(range_s);
 
         valueList_t *vl = getValueList(server_index, server_id, check_id, now, range, opts,0);
@@ -324,7 +325,7 @@ char* parseCommand(char *buf, int len, unsigned long s_addr) {
             }
         } else {
             // No data to return.
-            printf("pylon.parseCommand.%s:No data.\n",command);
+            //printf("pylon.parseCommand.%s:No data.\n",command);
             strcpy(output_buf, "0|0|0\n");
         }
         free(tmp_output_buf);
@@ -342,7 +343,7 @@ char* parseCommand(char *buf, int len, unsigned long s_addr) {
         strcpy(output_buf, "OK\n");
 
     } else if (strcmp(command, "status") == 0) {
-        printf("parseCommand: status\n");
+        //printf("parseCommand: status\n");
         char tmp_str[255];
         int server_count = getServerCount(server_index);
         int check_count = getCheckCount(server_index);
@@ -363,7 +364,7 @@ char* parseCommand(char *buf, int len, unsigned long s_addr) {
         char *server_id = strtok(NULL, "|\n\r");
         char tmp2[1024];
 
-        printf("parseCommand: checks|%s\n", server_id);
+        //printf("parseCommand: checks|%s\n", server_id);
 
         while (server_id != NULL && strcmp(server_id,"EOF") != 0) {
             int i;
@@ -398,13 +399,13 @@ char* parseCommand(char *buf, int len, unsigned long s_addr) {
     } else if (strcmp(command, "version") == 0) {
         char *tmp_str;
 
-        printf("parseCommand: version\n");
+        //printf("parseCommand:version\n");
         strcpy(output_buf, VERSION);
         strcat(output_buf, "\n");
     } else if (strcmp(command, "servers") == 0) {
         char *tmp_str;
 
-        printf("parseCommand: servers\n");
+        //printf("parseCommand:servers\n");
         tmp_str = getServerList(server_index);
         if (tmp_str != NULL) {
             strcpy(output_buf, tmp_str);
@@ -412,7 +413,7 @@ char* parseCommand(char *buf, int len, unsigned long s_addr) {
         }
         strcat(output_buf, "\n");
     } else {
-        printf("parseCommand: unknown command|%s\n", command);
+        //printf("parseCommand: unknown command|%s\n", command);
         strcpy(output_buf, "unknown command\n");
     }
 
@@ -519,47 +520,61 @@ void cleanup_data (int fd, short ev, void *arg) {
 void dump_data(int fd, short ev, void *arg) {
     dump_config_t *dump_config = arg;
 
-    if (stats->pending < 1) {
+    // advance
+    if (dump_config->check != NULL) {
+        //printf("pylon.dump_data:incrementing check\n");
+        dump_config->check = dump_config->check->next;
+    }
+
+    if (dump_config->check == NULL) {
+        //printf("pylon.dump_data:check is NULL\n");
         if (dump_config->server == NULL) {
-            close(dump_config->dump_fd);
-            rename(dump_config->dump_file_tmp, dump_config->dump_file);
+            //printf("pylon.dump_data:resetting server\n");
+            dump_config->server = server_index->next;
+        } else {
+            //printf("pylon.dump_data:incrementing server\n");
+            dump_config->server = dump_config->server->next;
+        }
+        if (dump_config->server != NULL) {
+            //printf("pylon.dump_data:resetting check for new server\n");
+            dump_config->check = dump_config->server->check->next;
+        }
+        //else {
+        //     printf("pylon.dump_data:new server is NULL\n");
+        //}
+    } 
+
+
+    // deal
+    if (dump_config->check == NULL && dump_config->server == NULL && dump_config->dump_fd > 0) {
+        // Reached the end of the set.  Swap the temp file to live.
+        //printf("pylon.dump_data:swap dump files\n");
+        close(dump_config->dump_fd);
+        dump_config->dump_fd = 0;
+        rename(dump_config->dump_file_tmp, dump_config->dump_file);
+    } else if (dump_config->check != NULL && dump_config->server != NULL) {
+        // Sitting on a valid entry.  
+        if (dump_config->dump_fd < 1) {
+            //printf("pylon.dump_data:open new temp file\n");
+            // Temp file hasn't been created.  Do so.
+            unlink(dump_config->dump_file_tmp);
             dump_config->dump_fd = open(dump_config->dump_file_tmp, O_WRONLY|O_CREAT, 0755);
             if (dump_config->dump_fd < 0) {
                 printf("pylon.dump_data:Can't open %s for writing\n", dump_config->dump_file_tmp);
                 exit(-1);
             }
-            dump_config->server = server_index->next;
-            if (dump_config->server != NULL) {
-                dump_config->check = dump_config->server->check->next;
-            } else {
-                dump_config->check = NULL;
-            }
-            printf("pylon.dump_data:Nothing to dump\n");
-        } else {
-            if (dump_config->check == NULL) {
-                dump_config->server = dump_config->server->next;
-                if (dump_config->server !=NULL) {
-                    dump_config->check = dump_config->server->check->next;
-                } else {
-                    dump_config->check = NULL;
-                }
-            } else {
-                printf("pylon.dump_data:dumping %s,%s\n", dump_config->server->name, dump_config->check->name);
-                char *checkdump = malloc(BUFLEN*sizeof(u_char));
-                checkdump[0] = 0;
-
-                dumpCheck(dump_config->server->name, dump_config->check, now, checkdump);
-                write(dump_config->dump_fd, checkdump, strlen(checkdump));
-                fsync(dump_config->dump_fd);
-                free(checkdump);
-                dump_config->check = dump_config->check->next;
-            }
         }
+        // Dump the current check to the temp file.
+        //printf("pylon.dump_data:dumping %s,%s\n", dump_config->server->name, dump_config->check->name);
+        dump_config->checkdump[0] = 0;
+
+        dumpCheck(dump_config->server->name, dump_config->check, now, dump_config->checkdump);
+        write(dump_config->dump_fd, dump_config->checkdump, strlen(dump_config->checkdump));
     }
 
+    // Re-add the event so it fires again.
     dump_config->tv.tv_sec = 0;
     dump_config->tv.tv_usec = DUMP_TIMEOUT;
-    // Readd the event so it fires again. Don't know why I need to do this.
     event_add(&dump_config->ev_dump, &dump_config->tv);
 }
 
@@ -656,6 +671,7 @@ int main(int argc, char **argv) {
     opts->buckets[3] = 86400;
 
     dump_config = malloc(sizeof(dump_config_t));
+    dump_config->dump_fd = 0;
 
     char *cvalue = NULL;
     bool do_daemonize = false;
@@ -785,14 +801,21 @@ int main(int argc, char **argv) {
     // Add dumper, if enabled.
     if (dump_config->dump_file != NULL) {
         dump_config->dump_file_tmp = malloc(sizeof(char) * (strlen(dump_config->dump_file) + 5));
+        dump_config->checkdump = malloc(BUFLEN*sizeof(u_char));
         strcpy(dump_config->dump_file_tmp, dump_config->dump_file);
         strcat(dump_config->dump_file_tmp, ".tmp");
 
+        // Load data from existing dump file
+        /*
+        int dump_fd = open(dump_config->dump_file, O_RDONLY);
+        if ( dump_fd > 0) {
+        }
+        close(f);
+        */
+
         event_set(&dump_config->ev_dump, -1, EV_TIMEOUT|EV_PERSIST, dump_data, dump_config);
-        //dump_config->tv.tv_sec = 10;
-        //dump_config->tv.tv_usec = 0;
-        dump_config->tv.tv_sec = 0;
-        dump_config->tv.tv_usec = DUMP_TIMEOUT;
+        dump_config->tv.tv_sec = 1;
+        dump_config->tv.tv_usec = 0;
         event_add(&dump_config->ev_dump, &dump_config->tv);
     }
 
