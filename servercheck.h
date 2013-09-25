@@ -42,5 +42,5 @@ void deleteCheck(check_t *check);
 server_t *getServerByName(server_t *server_index, char *server_id, int force);
 check_t *getServerCheckByName(server_t *server_index, char *server_id, char *check_id, int force);
 void dumpServer(server_t *server, time_t now, char *output_buf);
-void dumpCheck(char *servername, check_t *check, time_t now, char *output_buf);
+void dumpCheck(check_t *check, char *servername, time_t now, char *output_buf);
 

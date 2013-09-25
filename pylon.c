@@ -46,7 +46,7 @@
 #define MAX_BUCKETS 6
 #define BUCKET_SIZE 575
 #define CLEANUP_TIMEOUT 3600
-#define VERSION "0.0.0-12"
+#define VERSION "0.0.0-13"
 
 /* Length of each buffer in the buffer queue.  Also becomes the amount
  * of data we try to read per call to read(2). */
@@ -240,7 +240,7 @@ char* parseCommand(char *buf, unsigned long s_addr) {
             valueList_t *vl = getValueList(server_index, server_id, check_id, now, 0, opts, 0);
             while (vl != NULL) {
                 //printf("dumping %s, %s, %d\n", server_id, check_id, vl->step);
-                dumpValueList(server_id, check_id, vl, now, output_buf);
+                dumpValueList(check_id, server_id, vl, now, output_buf);
                 vl = vl->next;
             }
         } else {
@@ -568,7 +568,7 @@ void dump_data(int fd, short ev, void *arg) {
         //printf("pylon.dump_data:dumping %s,%s\n", dump_config->server->name, dump_config->check->name);
         dump_config->checkdump[0] = 0;
 
-        dumpCheck(dump_config->server->name, dump_config->check, now, dump_config->checkdump);
+        dumpCheck(dump_config->check, dump_config->server->name, now, dump_config->checkdump);
         write(dump_config->dump_fd, dump_config->checkdump, strlen(dump_config->checkdump));
     }
 
@@ -816,7 +816,9 @@ int main(int argc, char **argv) {
         // Load data from existing dump file
         int dump_fd = open(dump_config->dump_file, O_RDONLY);
         if ( dump_fd > 0) {
-            printf("loading data from %s\n", dump_config->dump_file);
+            time_t load_start = time(NULL);
+            int load_count = 0;
+            printf("loading data from %s: %d\n", dump_config->dump_file, load_start);
             char read_buf[1024];
             char *read_buf_tmp;
             char output_buf[10240];
@@ -856,12 +858,16 @@ int main(int argc, char **argv) {
                     if (server_id != NULL && check_id != NULL && size > 0 && step > 0) {
                         loadData(server_index, server_id, check_id, first, size, step, data, now, opts);
                     }
+                    load_count++;
 
                     output_buf[0] = 0;
                     read_buf_tmp = pos + 1;
                 }
                 strcat(output_buf, read_buf_tmp);
             }
+            time_t load_end = time(NULL);
+            printf("finished loading data from %s: %d\n", dump_config->dump_file, load_end);
+            printf("load time: %d seconds, %d checks, %.2f records/sec\n", (load_end - load_start), (load_count/4), ((load_count/4)/(load_end-load_start)));
         }
         close(dump_fd);
 

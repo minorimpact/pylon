@@ -367,11 +367,11 @@ valueList_t *loadData(server_t *server_index, char *server_id, char *check_id, t
     return vl;
 }
 
-void dumpCheck(char *servername, check_t *check, time_t now, char *output_buf) {
+void dumpCheck(check_t *check, char *servername, time_t now, char *output_buf) {
     //printf("servercheck.dumpCheck:dumping %s\n", check->name);
     valueList_t *vl = check->vl->next;
     while (vl != NULL) {
-        dumpValueList(servername, check->name, vl, now, output_buf);
+        dumpValueList(check->name, servername, vl, now, output_buf);
         vl = vl->next;
     }
     //printf("servercheck.dumpCheck:done\n");
@@ -381,7 +381,7 @@ void dumpServer(server_t *server, time_t now, char *output_buf) {
     //printf("servercheck.dumpServer:dumping %s\n", server->name);
     check_t *check = server->check->next;
     while (check != NULL) {
-        dumpCheck(server->name, check, now, output_buf);
+        dumpCheck(check, server->name, now, output_buf);
         check = check->next;
     }
     //printf("servercheck.dumpServer:done\n");
