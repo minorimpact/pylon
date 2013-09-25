@@ -45,9 +45,8 @@
 #define SERVER_PORT 5555
 #define MAX_BUCKETS 6
 #define BUCKET_SIZE 575
-#define DUMP_TIMEOUT 250000
 #define CLEANUP_TIMEOUT 3600
-#define VERSION "0.0.0-11"
+#define VERSION "0.0.0-12"
 
 /* Length of each buffer in the buffer queue.  Also becomes the amount
  * of data we try to read per call to read(2). */
@@ -92,6 +91,7 @@ typedef struct dump_config {
     struct event ev_dump;   
     struct timeval tv;
     int dump_fd;
+    int frequency;
     server_t *server;
     check_t *check;
 } dump_config_t;
@@ -120,17 +120,16 @@ int setnonblock(int fd) {
 }
 
 
-char* parseCommand(char *buf, int len, unsigned long s_addr) {
+char* parseCommand(char *buf, unsigned long s_addr) {
     int i;
-    char *tmp;
+    char *tmp = NULL;
     u_char *output_buf;
     char *command;
     now = time(NULL);
+    int len = strlen(buf);
 
     stats->commands++;
-    tmp = NULL;
 
-    buf[len]=0;
     output_buf = malloc(BUFLEN*sizeof(u_char));
     output_buf[0] = 0;
 
@@ -237,11 +236,15 @@ char* parseCommand(char *buf, int len, unsigned long s_addr) {
 
         //printf("parseCommand: dump|%s|%s\n", check_id, server_id);
 
-        valueList_t *vl = getValueList(server_index, server_id, check_id, now, 0, opts, 0);
-        while (vl != NULL) {
-            //printf("dumping %s, %s, %d\n", server_id, check_id, vl->step);
-            dumpValueList(server_id, check_id, vl, now, output_buf);
-            vl = vl->next;
+        if (server_id != NULL && check_id != NULL) {
+            valueList_t *vl = getValueList(server_index, server_id, check_id, now, 0, opts, 0);
+            while (vl != NULL) {
+                //printf("dumping %s, %s, %d\n", server_id, check_id, vl->step);
+                dumpValueList(server_id, check_id, vl, now, output_buf);
+                vl = vl->next;
+            }
+        } else {
+            strcpy(output_buf, "INVALID\n");
         }
     } else if (strcmp(command, "deleteserver") == 0) {
         char *server_id = strtok(NULL, "|\n\r");
@@ -386,14 +389,10 @@ char* parseCommand(char *buf, int len, unsigned long s_addr) {
                         strpos = i;
                     }
                 }
-                //printf("pylon.parseCommand.%s:pre free(tmp_str)\n", command);
                 free(tmp_str);
-                //printf("pylon.parseCommand.%s:post free(tmp_str)\n", command);
             }
             server_id = strtok(NULL, "|\n\r");
-            //printf("pylon.parseCommand.%s:server_id=%s\n",command,server_id);
         }
-        //printf("pylon.parseCommand.%s:strlen(output_buf)=%d\n", command, strlen(output_buf));
         output_buf[strlen(output_buf) - 1] = 0;
         strcat(output_buf,"\n");
     } else if (strcmp(command, "version") == 0) {
@@ -454,7 +453,8 @@ void on_read(int fd, short ev, void *arg) {
     }
     stats->pending++;
 
-    char *output_buf = parseCommand(buf, len, client->client_s_addr);
+    buf[len] = 0;
+    char *output_buf = parseCommand(buf, client->client_s_addr);
 
     if (output_buf != NULL && strlen(output_buf) > 0) {
         bufferq = malloc(sizeof(struct bufferq));
@@ -574,7 +574,7 @@ void dump_data(int fd, short ev, void *arg) {
 
     // Re-add the event so it fires again.
     dump_config->tv.tv_sec = 0;
-    dump_config->tv.tv_usec = DUMP_TIMEOUT;
+    dump_config->tv.tv_usec = 1000000/dump_config->frequency;
     event_add(&dump_config->ev_dump, &dump_config->tv);
 }
 
@@ -610,13 +610,14 @@ void on_accept(int fd, short ev, void *arg) {
 void usage(void) {
     printf("usage: pylon <options>\n");
     printf("version: %s\n", VERSION);
-    printf("-h            print this message and exit\n"
-           "-d            run as a daemon\n"
+    printf( "-d            run as a daemon\n"
+           "-D <checks/s> dump frequency; will write X checks per second.\n"
+           "-F <file>     dump data to <file>\n"
+           "-h            print this message and exit\n"
+           "-L <file>     log to <file>\n"
            "-P <file>     save PID in <file>, only used with -d option\n"
            "              default: /var/run/pylon.pid\n"
-           "-L <file>     log to <file>\n"
            "              default: /var/log/pylon.log\n"
-           "-F <file>     dump data to <file>\n"
            "-v            output version information\n"
         );
     return;
@@ -672,6 +673,7 @@ int main(int argc, char **argv) {
 
     dump_config = malloc(sizeof(dump_config_t));
     dump_config->dump_fd = 0;
+    dump_config->frequency = 4;
 
     char *cvalue = NULL;
     bool do_daemonize = false;
@@ -680,24 +682,33 @@ int main(int argc, char **argv) {
     char *dump_file = NULL;
 
 
-    while ((c = getopt(argc, argv, "hdP:s:c:L:F:v")) != -1) {
+    while ((c = getopt(argc, argv, "hdP:s:c:L:F:vD:")) != -1) {
         switch (c) {
-            case 'h':
-                usage();
-                exit(EXIT_SUCCESS);
-                break;
-            case 'v':
-                printf("%s\n",VERSION);
-                exit(0);
+            case 'c':
+                cleanup = atoi(optarg);
+                opts->cleanup = cleanup;
                 break;
             case 'd':
                 do_daemonize = true;
                 break;
-            case 'P':
-                pid_file = optarg;
+            case 'D':
+                dump_config->frequency = atoi(optarg);
+                if (dump_config->frequency < 1) {
+                    dump_config->frequency = 1;
+                }
                 break;
             case 'F':
                 dump_config->dump_file = optarg;
+                break;
+            case 'h':
+                usage();
+                exit(EXIT_SUCCESS);
+                break;
+            case 'L':
+                log_file = optarg;
+                break;
+            case 'P':
+                pid_file = optarg;
                 break;
             case 's':
                 if (opts->bucket_count >= opts->max_buckets) {
@@ -716,12 +727,9 @@ int main(int argc, char **argv) {
                 }
                 opts->bucket_count++;
                 break;
-            case 'c':
-                cleanup = atoi(optarg);
-                opts->cleanup = cleanup;
-                break;
-            case 'L':
-                log_file = optarg;
+            case 'v':
+                printf("%s\n",VERSION);
+                exit(0);
                 break;
             default:
                 usage();
@@ -806,18 +814,63 @@ int main(int argc, char **argv) {
         strcat(dump_config->dump_file_tmp, ".tmp");
 
         // Load data from existing dump file
-        /*
         int dump_fd = open(dump_config->dump_file, O_RDONLY);
         if ( dump_fd > 0) {
+            printf("loading data from %s\n", dump_config->dump_file);
+            char read_buf[1024];
+            char *read_buf_tmp;
+            char output_buf[10240];
+            output_buf[0] = 0;
+            char *pos;
+            int read_size;
+            while (read_size = read(dump_fd, read_buf, 1024)){
+                read_buf[read_size] = 0;
+                read_buf_tmp = read_buf;
+                while (pos = strchr(read_buf_tmp, '\n')) {
+                    pos[0] = 0;
+                    strcat(output_buf, read_buf_tmp);
+                    //printf("output='%s'\n",output_buf);
+
+                    char *check_id = strtok(output_buf, "|\n\r");
+                    char *server_id = strtok(NULL, "|\n\r");
+                    char *first_s = strtok(NULL, "|\n\r");
+                    char *size_s = strtok(NULL, "|\n\r");
+                    char *step_s = strtok(NULL, "|\n\r");
+                    time_t first = atoi(first_s);
+                    int size = atoi(size_s);
+                    int step = atoi(step_s);
+                    //printf("parseCommand: load|%s|%s|%d|%d|%d\n", check_id, server_id, first, size, step);
+
+                    double *data = malloc(size*sizeof(double));
+                    //printf("malloc data(%p)\n", data);
+                    char *d = strtok(NULL, "|\n\r");
+                    for (i=0;i<size;i++) {
+                        if (d != NULL) {
+                            data[i] = atof(d);
+                            d = strtok(NULL, "|\n\r");
+                        } else {
+                            data[i] = 0.0/0.0;
+                        }
+                    }
+
+                    if (server_id != NULL && check_id != NULL && size > 0 && step > 0) {
+                        loadData(server_index, server_id, check_id, first, size, step, data, now, opts);
+                    }
+
+                    output_buf[0] = 0;
+                    read_buf_tmp = pos + 1;
+                }
+                strcat(output_buf, read_buf_tmp);
+            }
         }
-        close(f);
-        */
+        close(dump_fd);
 
         event_set(&dump_config->ev_dump, -1, EV_TIMEOUT|EV_PERSIST, dump_data, dump_config);
         dump_config->tv.tv_sec = 1;
         dump_config->tv.tv_usec = 0;
         event_add(&dump_config->ev_dump, &dump_config->tv);
     }
+    //exit(0);
 
     event_dispatch();
 

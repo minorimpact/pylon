@@ -12,21 +12,22 @@ $| = 1;
 main();
 
 sub main {
+    my $hostname = `/bin/hostname -s`;
     while(1) {
         my $now = time();
         my $uptime = `/usr/bin/uptime`;
         $uptime =~/load average: ([0-9\.]+),/;
         my $cpu = $1;
 
-        print "CPU:$cpu:";
-        print pylon("add|cpu|radon|$cpu");
-        print "\n";
-        print pylon("dump|cpu|radon");
-        print "TIME:$now:";
-        print pylon("add|time|radon|$now|counter");
-        print "\n";
+        print pylon("add|cpu|$hostname|$cpu");
+        print pylon("add|time|$hostname|$now|counter");
 
-        print pylon("dump|time|radon");
+        foreach my $server (1..100) {
+            foreach my $check (1..10) {
+                my $value = int(rand(1000)) + 1;
+                print "add|check_$check|server_$server|$value:" . pylon("add|check_$check|server_$server|$value");
+            }
+        }
         sleep(300);
     }
 }
