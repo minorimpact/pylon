@@ -46,7 +46,7 @@
 #define MAX_BUCKETS 6
 #define BUCKET_SIZE 575
 #define CLEANUP_TIMEOUT 3600
-#define VERSION "0.0.0-13"
+#define VERSION "0.0.0-14"
 
 /* Length of each buffer in the buffer queue.  Also becomes the amount
  * of data we try to read per call to read(2). */
@@ -59,6 +59,7 @@ typedef struct stats {
     int adds;
     int gets;
     int pending;
+    int dumps;
     time_t start_time;
 } stats_t;
 
@@ -358,7 +359,7 @@ char* parseCommand(char *buf, unsigned long s_addr) {
             overflow_buffer_count++;
             ob = ob->next;
         }
-        sprintf(tmp_str, "servers=%d checks=%d size=%ld uptime=%d connections=%d commands=%d adds=%d gets=%d overflow_buffer_count=%d\n", server_count, check_count, size, (now - stats->start_time), stats->connections, stats->commands, stats->adds, stats->gets, overflow_buffer_count);
+        sprintf(tmp_str, "servers=%d checks=%d size=%ld uptime=%d connections=%d commands=%d adds=%d gets=%d overflow_buffer_count=%d dumps=%d\n", server_count, check_count, size, (now - stats->start_time), stats->connections, stats->commands, stats->adds, stats->gets, overflow_buffer_count, stats->dumps);
         printf("%s\n", tmp_str);
 
         strcpy(output_buf, tmp_str);
@@ -570,6 +571,7 @@ void dump_data(int fd, short ev, void *arg) {
 
         dumpCheck(dump_config->check, dump_config->server->name, now, dump_config->checkdump);
         write(dump_config->dump_fd, dump_config->checkdump, strlen(dump_config->checkdump));
+        stats->dumps++;
     }
 
     // Re-add the event so it fires again.
@@ -673,7 +675,7 @@ int main(int argc, char **argv) {
 
     dump_config = malloc(sizeof(dump_config_t));
     dump_config->dump_fd = 0;
-    dump_config->frequency = 4;
+    dump_config->frequency = 25;
 
     char *cvalue = NULL;
     bool do_daemonize = false;
