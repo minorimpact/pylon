@@ -823,7 +823,7 @@ int main(int argc, char **argv) {
             printf("loading data from %s: %d\n", dump_config->dump_file, load_start);
             char read_buf[1024];
             char *read_buf_tmp;
-            char output_buf[10240];
+            char *output_buf = malloc(BUFLEN*sizeof(u_char));
             output_buf[0] = 0;
             char *pos;
             int read_size;
@@ -868,6 +868,7 @@ int main(int argc, char **argv) {
                 strcat(output_buf, read_buf_tmp);
             }
             time_t load_end = time(NULL);
+            free(output_buf);
             printf("finished loading data from %s: %d\n", dump_config->dump_file, load_end);
             printf("load time: %d seconds, %d checks, %.2f records/sec\n", (load_end - load_start), (load_count/4), ((load_count/4)/(load_end-load_start)));
         }
