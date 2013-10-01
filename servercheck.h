@@ -1,4 +1,5 @@
 #include "valuelist.h"
+#include <malloc.h>
 
 #define LIST_SIZE 575
 #define LIST_STEP 10

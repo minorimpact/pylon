@@ -46,7 +46,7 @@
 #define MAX_BUCKETS 6
 #define BUCKET_SIZE 575
 #define CLEANUP_TIMEOUT 3600
-#define VERSION "0.0.0-14"
+#define VERSION "0.0.0-15"
 
 /* Length of each buffer in the buffer queue.  Also becomes the amount
  * of data we try to read per call to read(2). */
@@ -174,6 +174,7 @@ char* parseCommand(char *buf, unsigned long s_addr) {
             ob->next->prev = ob;
         }
         command_overflow_buffers->next = ob;
+        free(tmp);
         return output_buf;
     }
 
@@ -218,7 +219,6 @@ char* parseCommand(char *buf, unsigned long s_addr) {
         //printf("parseCommand: load|%s|%s|%d|%d|%d\n", check_id, server_id, first, size, step);
 
         double *data = malloc(size*sizeof(double));
-        //printf("malloc data(%p)\n", data);
         char *d = strtok(NULL, "|\n\r");
         for (i=0;i<size;i++) {
             if (d != NULL) {
@@ -433,12 +433,12 @@ void on_read(int fd, short ev, void *arg) {
 
     buf = malloc(BUFLEN * sizeof(u_char));
     if (buf == NULL) {
-        err(1, "malloc failed");
+        err(1, "Malloc failed");
     }
 
     len = read(fd, buf, BUFLEN);
     if (len == 0) {
-        printf("Client disconnected.\n");
+        //printf("Client disconnected.\n");
         close(fd);
         event_del(&client->ev_read);
         free(client);
@@ -460,7 +460,7 @@ void on_read(int fd, short ev, void *arg) {
     if (output_buf != NULL && strlen(output_buf) > 0) {
         bufferq = malloc(sizeof(struct bufferq));
         if (bufferq == NULL) {
-            err(1, "malloc failed");
+            err(1, "Malloc failed");
         }
         bufferq->buf = output_buf;
         bufferq->len = strlen(output_buf);
@@ -521,42 +521,30 @@ void cleanup_data (int fd, short ev, void *arg) {
 void dump_data(int fd, short ev, void *arg) {
     dump_config_t *dump_config = arg;
 
-    // advance
+    // Advance the current dump pointer.
     if (dump_config->check != NULL) {
-        //printf("pylon.dump_data:incrementing check\n");
         dump_config->check = dump_config->check->next;
     }
-
     if (dump_config->check == NULL) {
-        //printf("pylon.dump_data:check is NULL\n");
         if (dump_config->server == NULL) {
-            //printf("pylon.dump_data:resetting server\n");
             dump_config->server = server_index->next;
         } else {
-            //printf("pylon.dump_data:incrementing server\n");
             dump_config->server = dump_config->server->next;
         }
         if (dump_config->server != NULL) {
-            //printf("pylon.dump_data:resetting check for new server\n");
             dump_config->check = dump_config->server->check->next;
         }
-        //else {
-        //     printf("pylon.dump_data:new server is NULL\n");
-        //}
     } 
 
-
-    // deal
+    // Process the current pointer.
     if (dump_config->check == NULL && dump_config->server == NULL && dump_config->dump_fd > 0) {
-        // Reached the end of the set.  Swap the temp file to live.
-        //printf("pylon.dump_data:swap dump files\n");
+        // Reached the end of the set.  Close the temp file, and swap it to live.
         close(dump_config->dump_fd);
         dump_config->dump_fd = 0;
         rename(dump_config->dump_file_tmp, dump_config->dump_file);
     } else if (dump_config->check != NULL && dump_config->server != NULL) {
         // Sitting on a valid entry.  
         if (dump_config->dump_fd < 1) {
-            //printf("pylon.dump_data:open new temp file\n");
             // Temp file hasn't been created.  Do so.
             unlink(dump_config->dump_file_tmp);
             dump_config->dump_fd = open(dump_config->dump_file_tmp, O_WRONLY|O_CREAT, 0755);
@@ -566,7 +554,6 @@ void dump_data(int fd, short ev, void *arg) {
             }
         }
         // Dump the current check to the temp file.
-        //printf("pylon.dump_data:dumping %s,%s\n", dump_config->server->name, dump_config->check->name);
         dump_config->checkdump[0] = 0;
 
         dumpCheck(dump_config->check, dump_config->server->name, now, dump_config->checkdump);
@@ -576,7 +563,7 @@ void dump_data(int fd, short ev, void *arg) {
 
     // Re-add the event so it fires again.
     dump_config->tv.tv_sec = 0;
-    dump_config->tv.tv_usec = 1000000/dump_config->frequency;
+    dump_config->tv.tv_usec = (int) 1000000/dump_config->frequency;
     event_add(&dump_config->ev_dump, &dump_config->tv);
 }
 
@@ -595,7 +582,7 @@ void on_accept(int fd, short ev, void *arg) {
     if (setnonblock(client_fd) < 0) warn("failed to set client socket non-blocking");
 
     client = malloc(sizeof(struct client));
-    if (client == NULL) err(1, "malloc failed");
+    if (client == NULL) err(1, "Malloc failed");
 
     event_set(&client->ev_read, client_fd, EV_READ|EV_PERSIST, on_read, client);
 
@@ -605,7 +592,7 @@ void on_accept(int fd, short ev, void *arg) {
 
     TAILQ_INIT(&client->writeq);
 
-    printf("Accepted connection from %s (%d)\n", inet_ntoa(client_addr.sin_addr),stats->pending);
+    //printf("Accepted connection from %s (%d)\n", inet_ntoa(client_addr.sin_addr),stats->pending);
     client->client_s_addr = client_addr.sin_addr.s_addr;
 }
 
@@ -846,7 +833,6 @@ int main(int argc, char **argv) {
                     //printf("parseCommand: load|%s|%s|%d|%d|%d\n", check_id, server_id, first, size, step);
 
                     double *data = malloc(size*sizeof(double));
-                    //printf("malloc data(%p)\n", data);
                     char *d = strtok(NULL, "|\n\r");
                     for (i=0;i<size;i++) {
                         if (d != NULL) {
