@@ -52,7 +52,6 @@
  * of data we try to read per call to read(2). */
 #define BUFLEN 10240 * MAX_BUCKETS
 
-
 typedef struct stats {
     int connections;
     int commands;
@@ -132,6 +131,7 @@ char* parseCommand(char *buf, unsigned long s_addr) {
     stats->commands++;
 
     output_buf = malloc(BUFLEN*sizeof(u_char));
+    printf("malloc pylon command output_buf %p\n", output_buf);
     output_buf[0] = 0;
 
     if (command_overflow_buffers->next != NULL) {
@@ -140,6 +140,7 @@ char* parseCommand(char *buf, unsigned long s_addr) {
         while (ob != NULL) {
             if (ob->s_addr == s_addr) {
                 tmp = malloc((len + strlen(ob->command_overflow_buffer) + 1) * sizeof(char));
+                printf("malloc pylon parseCommand tmp-1 %p\n", tmp);
                 strcpy(tmp, ob->command_overflow_buffer);
                 strcat(tmp, buf);
                 if (ob->next != NULL) {
@@ -148,7 +149,9 @@ char* parseCommand(char *buf, unsigned long s_addr) {
                 if (ob->prev != NULL) {
                     ob->prev->next = ob->next;
                 }
+                printf("free pylon parseCommand ob->command_overflow_buffer %p\n", ob->command_overflow_buffer);
                 free(ob->command_overflow_buffer);
+                printf("free pylon parseCommand ob %p\n", ob);
                 free(ob);
 
                 break;
@@ -159,14 +162,17 @@ char* parseCommand(char *buf, unsigned long s_addr) {
 
     if (tmp == NULL) {
         tmp = malloc((len+1) * sizeof(char));
+        printf("malloc pylon parseCommand tmp-2 %p\n", tmp);
         strcpy(tmp, buf);
     }
 
     if (strcmp(tmp + (strlen(tmp) - 4), "EOF\n") != 0) {
         overflow_buffer_t *ob;
         ob = malloc(sizeof(overflow_buffer_t));
+        printf("malloc pylon parseCommand ob %p\n", ob);
         ob->s_addr = s_addr;
         ob->command_overflow_buffer = malloc((strlen(tmp) + 1) * sizeof(char));
+        printf("malloc pylon parseCommand ob->command_overflow_buffer %p\n", ob->command_overflow_buffer);
         strcpy(ob->command_overflow_buffer, tmp);
         ob->next = command_overflow_buffers->next;
         ob->prev = command_overflow_buffers;
@@ -174,6 +180,7 @@ char* parseCommand(char *buf, unsigned long s_addr) {
             ob->next->prev = ob;
         }
         command_overflow_buffers->next = ob;
+        printf("free pylon parseCommand tmp %p\n", tmp);
         free(tmp);
         return output_buf;
     }
@@ -219,6 +226,7 @@ char* parseCommand(char *buf, unsigned long s_addr) {
         //printf("parseCommand: load|%s|%s|%d|%d|%d\n", check_id, server_id, first, size, step);
 
         double *data = malloc(size*sizeof(double));
+        printf("malloc pylon parseCommand data %p\n", data);
         char *d = strtok(NULL, "|\n\r");
         for (i=0;i<size;i++) {
             if (d != NULL) {
@@ -332,6 +340,7 @@ char* parseCommand(char *buf, unsigned long s_addr) {
             //printf("pylon.parseCommand.%s:No data.\n",command);
             strcpy(output_buf, "0|0|0\n");
         }
+        printf("free pylon parseCommand tmp_output_buf %p\n", tmp_output_buf);
         free(tmp_output_buf);
         stats->gets++;
     } else if (strcmp(command, "reset") == 0) {
@@ -390,6 +399,7 @@ char* parseCommand(char *buf, unsigned long s_addr) {
                         strpos = i;
                     }
                 }
+                printf("free pylon parseCommand tmp_str-1 %p\n", tmp_str);
                 free(tmp_str);
             }
             server_id = strtok(NULL, "|\n\r");
@@ -409,6 +419,7 @@ char* parseCommand(char *buf, unsigned long s_addr) {
         tmp_str = getServerList(server_index);
         if (tmp_str != NULL) {
             strcpy(output_buf, tmp_str);
+            printf("free pylon parseCommand tmp_str-2 %p\n", tmp_str);
             free(tmp_str);
         }
         strcat(output_buf, "\n");
@@ -420,6 +431,7 @@ char* parseCommand(char *buf, unsigned long s_addr) {
     // Blank line signals the end of output.
     strcat(output_buf, "\n");
     
+    printf("free pylon parseCommand tmp %p\n", tmp);
     free(tmp);
     return output_buf;
 }
@@ -432,6 +444,7 @@ void on_read(int fd, short ev, void *arg) {
     stats->connections++;
 
     buf = malloc(BUFLEN * sizeof(u_char));
+    printf("malloc pylon on_read buf %p\n", buf);
     if (buf == NULL) {
         err(1, "Malloc failed");
     }
@@ -441,14 +454,18 @@ void on_read(int fd, short ev, void *arg) {
         //printf("Client disconnected.\n");
         close(fd);
         event_del(&client->ev_read);
+        printf("free pylon on_read client-1 %p\n", client);
         free(client);
+        printf("free pylon on_read buf-1 %p\n", buf);
         free(buf);
         return;
     } else if (len < 0) {
         printf("Socket failure, disconnecting client: %s", strerror(errno));
         close(fd);
         event_del(&client->ev_read);
+        printf("free pylon on_read client-2 %p\n", client);
         free(client);
+        printf("free pylon on_read buf-2 %p\n", buf);
         free(buf);
         return;
     }
@@ -459,6 +476,7 @@ void on_read(int fd, short ev, void *arg) {
 
     if (output_buf != NULL && strlen(output_buf) > 0) {
         bufferq = malloc(sizeof(struct bufferq));
+        printf("malloc pylon on_read bufferq %p\n", bufferq);
         if (bufferq == NULL) {
             err(1, "Malloc failed");
         }
@@ -469,9 +487,11 @@ void on_read(int fd, short ev, void *arg) {
 
         event_add(&client->ev_write, NULL);
     } else if (output_buf != NULL) {
+        printf("free pylon on_read output_buf %p\n", output_buf);
         free(output_buf);
     }
 
+    printf("free pylon on_read buf %p\n", buf);
     free(buf);
 }
 
@@ -503,7 +523,9 @@ void on_write(int fd, short ev, void *arg) {
     }
 
     TAILQ_REMOVE(&client->writeq, bufferq, entries);
+    printf("free pylon on_write bufferq->buf %p\n", bufferq->buf);
     free(bufferq->buf);
+    printf("free pylon on_write bufferq %p\n", bufferq);
     free(bufferq);
     if (stats->pending > 0) {
         stats->pending--;
@@ -583,6 +605,7 @@ void on_accept(int fd, short ev, void *arg) {
 
     client = malloc(sizeof(struct client));
     if (client == NULL) err(1, "Malloc failed");
+    printf("malloc pylon on_accept client %p\n", client);
 
     event_set(&client->ev_read, client_fd, EV_READ|EV_PERSIST, on_read, client);
 
@@ -811,6 +834,7 @@ int main(int argc, char **argv) {
             char read_buf[1024];
             char *read_buf_tmp;
             char *output_buf = malloc(BUFLEN*sizeof(u_char));
+            printf("malloc pylon main output_buf %p\n", output_buf);
             output_buf[0] = 0;
             char *pos;
             int read_size;
@@ -833,6 +857,7 @@ int main(int argc, char **argv) {
                     //printf("parseCommand: load|%s|%s|%d|%d|%d\n", check_id, server_id, first, size, step);
 
                     double *data = malloc(size*sizeof(double));
+                    //printf("malloc pylon main data %p\n", data);
                     char *d = strtok(NULL, "|\n\r");
                     for (i=0;i<size;i++) {
                         if (d != NULL) {
@@ -845,8 +870,11 @@ int main(int argc, char **argv) {
 
                     if (server_id != NULL && check_id != NULL && size > 0 && step > 0) {
                         loadData(server_index, server_id, check_id, first, size, step, data, now, opts);
+                        load_count++;
+                    } else {
+                        //printf("free pylon main data %p\n", data);
+                        free(data);
                     }
-                    load_count++;
 
                     output_buf[0] = 0;
                     read_buf_tmp = pos + 1;
@@ -854,9 +882,12 @@ int main(int argc, char **argv) {
                 strcat(output_buf, read_buf_tmp);
             }
             time_t load_end = time(NULL);
+            printf("free pylon main output_buf %p\n", output_buf);
             free(output_buf);
             printf("finished loading data from %s: %d\n", dump_config->dump_file, load_end);
-            printf("load time: %d seconds, %d checks, %.2f records/sec\n", (load_end - load_start), (load_count/4), ((load_count/4)/(load_end-load_start)));
+            if (load_end > load_start) {
+                printf("load time: %d seconds, %d checks, %.2f records/sec\n", (load_end - load_start), (load_count/4), ((load_count/4)/(load_end-load_start)));
+            }
         }
         close(dump_fd);
 

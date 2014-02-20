@@ -45,7 +45,7 @@ server_t *getServerByName(server_t *server_index, char *server_id, int force) {
     }
 
     if (force > 0) {
-        printf("servercheck.getServerByName:creating server_id=%s\n", server_id);
+        //printf("servercheck.getServerByName:creating server_id=%s\n", server_id);
         server = malloc(sizeof(server_t));
         server->name = malloc((strlen(server_id) + 1) * sizeof(char));
         strcpy(server->name, server_id);
@@ -150,6 +150,7 @@ char *getServerList(server_t *server_index) {
     }
 
     char *tmp_str = malloc((server_size + 1) * sizeof(char));
+    printf("malloc servercheck getServerList tmp_str %p\n", tmp_str);
     tmp_str[0] = 0;
 
     server = server_index->next;
@@ -184,8 +185,9 @@ char *getCheckList(server_t *server_index, char *server_id) {
     }
 
     if (check_size > 0) {
-        printf("servercheck.getCheckList:server_id=%s,check_size=%d\n", server_id, check_size);
+        //printf("servercheck.getCheckList:server_id=%s,check_size=%d\n", server_id, check_size);
         char *tmp_str = malloc(sizeof(char) * (check_size+1));
+        printf("malloc servercheck getServerCheckList tmp_str %p\n", tmp_str);
         tmp_str[0] = 0;
         check = server->check->next;
         while(check != NULL) {

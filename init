@@ -9,11 +9,12 @@
 
 RETVAL=0
 DIR=~pgillan/pylon
+TMPDIR=/tmp
 
 start() {
 	echo -n $"Starting up pylon server: "
-    rm -f $DIR/pylon.log
-    $DIR/pylon -d -P $DIR/pylon.pid -L $DIR/pylon.log -D 50 -F /tmp/pylon_dump
+    rm -f $TMPDIR/pylon.log
+    $DIR/pylon -d -P $TMPDIR/pylon.pid -L $TMPDIR/pylon.log -D 50 -F $TMPDIR/pylon_dump
 	RETVAL=$?
 	#sleep 5;
     #$DIR/pylon_loader.pl
@@ -23,8 +24,8 @@ start() {
 
 stop() {
 	echo -n $"Shutting down pylon server: "
-	kill `cat $DIR/pylon.pid`
-    rm -f $DIR/pylon.pid
+	kill `cat $TMPDIR/pylon.pid`
+    rm -f $TMPDIR/pylon.pid
 	RETVAL=$?
 	echo
 	return $RETVAL
