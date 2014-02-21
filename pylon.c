@@ -50,7 +50,7 @@
 
 /* Length of each buffer in the buffer queue.  Also becomes the amount
  * of data we try to read per call to read(2). */
-#define BUFLEN (20 * BUCKET_SIZE * MAX_BUCKETS) + 100
+#define BUFLEN (20 * BUCKET_SIZE * MAX_BUCKETS) + 150
 
 typedef struct stats {
     int connections;
@@ -214,7 +214,7 @@ char* parseCommand(char *buf, unsigned long s_addr) {
         valueList_t *vl = NULL;
         int type = 0;
 
-        //printf("parseCommand: add|%s|%s|%s|%s\n", check_id, server_id, value, type_s);
+        printf("parseCommand: add|%s|%s|%s|%s\n", check_id, server_id, value, type_s);
 
         if (server_id != NULL && value != NULL && strcmp(server_id,"EOF") !=0 && strcmp(value,"EOF") != 0) {
             if (strcmp(type_s, "counter") == 0) {
@@ -223,12 +223,22 @@ char* parseCommand(char *buf, unsigned long s_addr) {
 
             vl = getValueList(server_index, server_id, check_id, now, 0, opts, 1);
             if (vl != NULL) {
-                addValue(vl, atof(value), now, type);
-                strcpy(output_buf, "OK\n");
+                char vs[20];
+                sprintf(vs, "%.5f", value);
+                double v = atof(vs);
+                if (v < 1000000000000) {
+                    addValue(vl, v, now, type);
+                    strcpy(output_buf, "OK\n");
+                } else {
+                    printf("TOO BIG\n");
+                    strcpy(output_buf, "TOO BIG\n");
+                }
             } else { 
+                printf("FAIL\n");
                 strcpy(output_buf, "FAIL\n");
             }
         } else { 
+            printf("INVALID\n");
             strcpy(output_buf, "INVALID\n");
         }
         stats->adds++;

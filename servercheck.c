@@ -45,7 +45,7 @@ server_t *getServerByName(server_t *server_index, char *server_id, int force) {
         server = server->next;
     }
 
-    if (force > 0) {
+    if (force > 0 && strlen(server_id) < 52) {
         //printf("servercheck.getServerByName:creating server_id=%s\n", server_id);
         server = malloc(sizeof(server_t));
         if (server == NULL) {
@@ -86,7 +86,7 @@ check_t *getServerCheckByName(server_t *server_index, char *server_id, char *che
         check = check->next;
     }
 
-    if (force > 0) {
+    if (force > 0 && strlen(server_id) <=52) {
         printf("servercheck.getServerCheckByName:creating check_id=%s for server_id=%s\n", check_id, server_id);
         check = malloc(sizeof(check_t));
         if (check == NULL) {

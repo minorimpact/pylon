@@ -3,7 +3,7 @@
 
 my %malloc;
 open(LOG, "/tmp/pylon.log");
-seek(LOG,-5000000, 2);
+seek(LOG,-50000000, 2);
 while(<LOG>) {
     my $line = $_;
     chomp($line);
