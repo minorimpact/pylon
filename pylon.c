@@ -227,6 +227,7 @@ char* parseCommand(char *buf, unsigned long s_addr) {
                 sprintf(vs, "%.5f", value);
                 double v = atof(vs);
                 if (v < 1000000000000) {
+                    printf("converted '%s' to '%s' to '%f'\n", value, vs, v);
                     addValue(vl, v, now, type);
                     strcpy(output_buf, "OK\n");
                 } else {
@@ -407,7 +408,7 @@ char* parseCommand(char *buf, unsigned long s_addr) {
             ob = ob->next;
         }
         sprintf(tmp_str, "servers=%d checks=%d size=%ld uptime=%d connections=%d commands=%d adds=%d gets=%d overflow_buffer_count=%d dumps=%d\n", server_count, check_count, size, (now - stats->start_time), stats->connections, stats->commands, stats->adds, stats->gets, overflow_buffer_count, stats->dumps);
-        printf("%s\n", tmp_str);
+        printf("%s", tmp_str);
 
         strcpy(output_buf, tmp_str);
 

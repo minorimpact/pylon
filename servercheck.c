@@ -46,7 +46,7 @@ server_t *getServerByName(server_t *server_index, char *server_id, int force) {
     }
 
     if (force > 0 && strlen(server_id) < 52) {
-        //printf("servercheck.getServerByName:creating server_id=%s\n", server_id);
+        printf("servercheck.getServerByName:creating server_id=%s\n", server_id);
         server = malloc(sizeof(server_t));
         if (server == NULL) {
             printf("malloc servercheck getServerByName server FAILED\n");
@@ -90,18 +90,18 @@ check_t *getServerCheckByName(server_t *server_index, char *server_id, char *che
         printf("servercheck.getServerCheckByName:creating check_id=%s for server_id=%s\n", check_id, server_id);
         check = malloc(sizeof(check_t));
         if (check == NULL) {
-            printf("malloc servercheck getSererCheckByName check FAILED\n");
+            printf("malloc servercheck getServerCheckByName check FAILED\n");
             exit(-1);
         }
         check->name = malloc((strlen(check_id)+1) * sizeof(char));
         if (check->name == NULL) {
-            printf("malloc servercheck getSererCheckByName check->name FAILED\n");
+            printf("malloc servercheck getServerCheckByName check->name FAILED\n");
             exit(-1);
         }
         strcpy(check->name, check_id);
         check->vl = malloc(sizeof(valueList_t));
         if (check->vl == NULL) {
-            printf("malloc servercheck getSererCheckByName check->vl FAILED\n");
+            printf("malloc servercheck getServerCheckByName check->vl FAILED\n");
             exit(-1);
         }
         check->vl->next = NULL;

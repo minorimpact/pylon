@@ -14,6 +14,7 @@
  * Returns a pointer to a new valuelist object.
  */
 valueList_t *newValueList(int size, int step, time_t now) {
+    printf("valuelist.newValueList(size='%d', step='%d')\n", size, step);
     valueList_t *vl = malloc(sizeof(valueList_t));
     if (vl == NULL) {
         printf("malloc valuelist newValueList vl FAILED\n");
@@ -53,6 +54,7 @@ void addValue(valueList_t *vl, double value, time_t now, int type) {
     if (vl == NULL) {
         return;
     }
+    printf("valuelist.addValue(value='%f', step='%d')\n", value, vl->step);
     makeValueListCurrent(vl,now);
     int last = vl->first + (vl->step * (vl->size - 1));
     int i;
