@@ -4,6 +4,8 @@
 #include <string.h>
 #include "valuelist.h"
 
+#define LIMIT 1000000000000
+
 /*
  * General Notes:
  *  - These functions all take "now" as an option so when multiple functions are called together for multiple objects, they're all working off same value of
@@ -290,7 +292,12 @@ void dumpValueList(char *check, char *server, valueList_t *vl, time_t now, char 
 
     int i;
     for (i=0; i<vl->size; i++) {
-        sprintf(output_buf + strlen(output_buf),"%.5f|",data[i]);
+        if (data[i] < LIMIT) {
+            sprintf(output_buf + strlen(output_buf),"%.5f|",data[i]);
+        } else {
+            sprintf(output_buf + strlen(output_buf),"%d|",LIMIT);
+        }
+
     }
     output_buf[strlen(output_buf) -1] = '\n';
 }

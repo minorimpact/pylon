@@ -223,17 +223,8 @@ char* parseCommand(char *buf, unsigned long s_addr) {
 
             vl = getValueList(server_index, server_id, check_id, now, 0, opts, 1);
             if (vl != NULL) {
-                char vs[20];
-                sprintf(vs, "%.5f", value);
-                double v = atof(vs);
-                if (v < 1000000000000) {
-                    printf("converted '%s' to '%s' to '%f'\n", value, vs, v);
-                    addValue(vl, v, now, type);
-                    strcpy(output_buf, "OK\n");
-                } else {
-                    printf("TOO BIG\n");
-                    strcpy(output_buf, "TOO BIG\n");
-                }
+                addValue(vl, atof(value), now, type);
+                strcpy(output_buf, "OK\n");
             } else { 
                 printf("FAIL\n");
                 strcpy(output_buf, "FAIL\n");
