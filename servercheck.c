@@ -1,4 +1,5 @@
 #include <stdio.h> 
+#include <stdlib.h>
 #include <string.h>
 #include "servercheck.h"
 
@@ -47,9 +48,21 @@ server_t *getServerByName(server_t *server_index, char *server_id, int force) {
     if (force > 0) {
         //printf("servercheck.getServerByName:creating server_id=%s\n", server_id);
         server = malloc(sizeof(server_t));
+        if (server == NULL) {
+            printf("malloc servercheck getServerByName server FAILED\n");
+            exit(-1);
+        }
         server->name = malloc((strlen(server_id) + 1) * sizeof(char));
+        if (server->name == NULL) {
+            printf("malloc servercheck getServerByName server->name FAILED\n");
+            exit(-1);
+        }
         strcpy(server->name, server_id);
         server->check = malloc(sizeof(check_t));
+        if (server->check == NULL) {
+            printf("malloc servercheck getServerByName server->check FAILED\n");
+            exit(-1);
+        }
         server->check->next = NULL;
 
         server->next = server_index->next;
@@ -76,9 +89,21 @@ check_t *getServerCheckByName(server_t *server_index, char *server_id, char *che
     if (force > 0) {
         printf("servercheck.getServerCheckByName:creating check_id=%s for server_id=%s\n", check_id, server_id);
         check = malloc(sizeof(check_t));
+        if (check == NULL) {
+            printf("malloc servercheck getSererCheckByName check FAILED\n");
+            exit(-1);
+        }
         check->name = malloc((strlen(check_id)+1) * sizeof(char));
+        if (check->name == NULL) {
+            printf("malloc servercheck getSererCheckByName check->name FAILED\n");
+            exit(-1);
+        }
         strcpy(check->name, check_id);
         check->vl = malloc(sizeof(valueList_t));
+        if (check->vl == NULL) {
+            printf("malloc servercheck getSererCheckByName check->vl FAILED\n");
+            exit(-1);
+        }
         check->vl->next = NULL;
         check->next = server->check->next;
         server->check->next = check;
@@ -150,6 +175,10 @@ char *getServerList(server_t *server_index) {
     }
 
     char *tmp_str = malloc((server_size + 1) * sizeof(char));
+    if (tmp_str == NULL) {
+        printf("malloc servercheck getServerList tmp_str FAILED\n");
+        exit(-1);
+    }
     printf("malloc servercheck getServerList tmp_str %p\n", tmp_str);
     tmp_str[0] = 0;
 
@@ -187,6 +216,10 @@ char *getCheckList(server_t *server_index, char *server_id) {
     if (check_size > 0) {
         //printf("servercheck.getCheckList:server_id=%s,check_size=%d\n", server_id, check_size);
         char *tmp_str = malloc(sizeof(char) * (check_size+1));
+        if (tmp_str == NULL) {
+            printf("malloc servercheck getServerCheckList tmp_str FAILED\n");
+            exit(-1);
+        }
         printf("malloc servercheck getServerCheckList tmp_str %p\n", tmp_str);
         tmp_str[0] = 0;
         check = server->check->next;
@@ -301,6 +334,10 @@ void deleteServerByName(server_t *server_index, char *server_id) {
 
 server_t *newServerIndex() {
     server_t *server_index = malloc(sizeof(server_t));
+    if (server_index == NULL) {
+        printf("malloc servercheck newServerIndex server_index FAILED\n");
+        exit(-1);
+    }
     server_index->name = NULL;
     server_index->next = NULL;
     return server_index;
@@ -360,6 +397,7 @@ valueList_t *loadData(server_t *server_index, char *server_id, char *check_id, t
 void dumpCheck(check_t *check, char *servername, time_t now, char *output_buf) {
     valueList_t *vl = check->vl->next;
     while (vl != NULL) {
+        printf("strlen servercheck dumpCheck (%s/%s) output_buf %d\n", check->name, servername, strlen(output_buf));
         dumpValueList(check->name, servername, vl, now, output_buf);
         vl = vl->next;
     }

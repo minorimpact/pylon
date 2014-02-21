@@ -1,3 +1,4 @@
+#include <stdlib.h>
 #include <time.h> 
 #include <stdio.h>
 #include <string.h>
@@ -14,6 +15,10 @@
  */
 valueList_t *newValueList(int size, int step, time_t now) {
     valueList_t *vl = malloc(sizeof(valueList_t));
+    if (vl == NULL) {
+        printf("malloc valuelist newValueList vl FAILED\n");
+        exit(-1);
+    }
 
     vl->first = now - (now % step) - (step * (size - 1));
     vl->step = step;
@@ -23,6 +28,10 @@ valueList_t *newValueList(int size, int step, time_t now) {
     vl->update_counter_value = 0.0/0.0;
 
     vl->data = malloc(size*sizeof(double));
+    if (vl->data == NULL) {
+        printf("malloc valuelist newValueList vl->data FAILED\n");
+        exit(-1);
+    }
     int i;
     for (i=0;i<size;i++) {
         vl->data[i] = 0.0/0.0;
@@ -279,7 +288,7 @@ void dumpValueList(char *check, char *server, valueList_t *vl, time_t now, char 
 
     int i;
     for (i=0; i<vl->size; i++) {
-        sprintf(output_buf + strlen(output_buf),"%f|",data[i]);
+        sprintf(output_buf + strlen(output_buf),"%.5f|",data[i]);
     }
     output_buf[strlen(output_buf) -1] = '\n';
 }

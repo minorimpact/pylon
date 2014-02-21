@@ -46,11 +46,11 @@
 #define MAX_BUCKETS 6
 #define BUCKET_SIZE 575
 #define CLEANUP_TIMEOUT 3600
-#define VERSION "0.0.0-15"
+#define VERSION "0.0.0-16"
 
 /* Length of each buffer in the buffer queue.  Also becomes the amount
  * of data we try to read per call to read(2). */
-#define BUFLEN 10240 * MAX_BUCKETS
+#define BUFLEN (20 * BUCKET_SIZE * MAX_BUCKETS) + 100
 
 typedef struct stats {
     int connections;
@@ -131,6 +131,10 @@ char* parseCommand(char *buf, unsigned long s_addr) {
     stats->commands++;
 
     output_buf = malloc(BUFLEN*sizeof(u_char));
+    if (output_buf == NULL) {
+        printf("malloc pylon command output_buf FAILED\n");
+        exit(-1);
+    }
     printf("malloc pylon command output_buf %p\n", output_buf);
     output_buf[0] = 0;
 
@@ -140,6 +144,10 @@ char* parseCommand(char *buf, unsigned long s_addr) {
         while (ob != NULL) {
             if (ob->s_addr == s_addr) {
                 tmp = malloc((len + strlen(ob->command_overflow_buffer) + 1) * sizeof(char));
+                if (tmp == NULL) {
+                    printf("malloc pylon parseCommand tmp-1 FAILED\n");
+                    exit(-1);
+                }
                 printf("malloc pylon parseCommand tmp-1 %p\n", tmp);
                 strcpy(tmp, ob->command_overflow_buffer);
                 strcat(tmp, buf);
@@ -162,6 +170,10 @@ char* parseCommand(char *buf, unsigned long s_addr) {
 
     if (tmp == NULL) {
         tmp = malloc((len+1) * sizeof(char));
+        if (tmp == NULL) {
+            printf("malloc pylon parseCommand tmp-2 FAILED\n");
+            exit(-1);
+        }
         printf("malloc pylon parseCommand tmp-2 %p\n", tmp);
         strcpy(tmp, buf);
     }
@@ -169,9 +181,17 @@ char* parseCommand(char *buf, unsigned long s_addr) {
     if (strcmp(tmp + (strlen(tmp) - 4), "EOF\n") != 0) {
         overflow_buffer_t *ob;
         ob = malloc(sizeof(overflow_buffer_t));
+        if (ob == NULL) {
+            printf("malloc pylon parseCommand ob FAILED\n");
+            exit(-1);
+        }
         printf("malloc pylon parseCommand ob %p\n", ob);
         ob->s_addr = s_addr;
         ob->command_overflow_buffer = malloc((strlen(tmp) + 1) * sizeof(char));
+        if (ob->command_overflow_buffer == NULL) {
+            printf("malloc pylon parseCommand ob->command_overflow_buffer FAILED\n");
+            exit(-1);
+        }
         printf("malloc pylon parseCommand ob->command_overflow_buffer %p\n", ob->command_overflow_buffer);
         strcpy(ob->command_overflow_buffer, tmp);
         ob->next = command_overflow_buffers->next;
@@ -223,9 +243,13 @@ char* parseCommand(char *buf, unsigned long s_addr) {
         time_t first = atoi(first_s);
         int size = atoi(size_s);
         int step = atoi(step_s);
-        //printf("parseCommand: load|%s|%s|%d|%d|%d\n", check_id, server_id, first, size, step);
+        printf("parseCommand: load|%s|%s|%d|%d|%d\n", check_id, server_id, first, size, step);
 
         double *data = malloc(size*sizeof(double));
+        if (data == NULL) {
+            printf("malloc pylon parseCommand data FAILED\n");
+            exit(-1);
+        }
         printf("malloc pylon parseCommand data %p\n", data);
         char *d = strtok(NULL, "|\n\r");
         for (i=0;i<size;i++) {
@@ -243,7 +267,7 @@ char* parseCommand(char *buf, unsigned long s_addr) {
         char *check_id = strtok(NULL, "|\n\r");
         char *server_id = strtok(NULL, "|\n\r");
 
-        //printf("parseCommand: dump|%s|%s\n", check_id, server_id);
+        printf("parseCommand: dump|%s|%s\n", check_id, server_id);
 
         if (server_id != NULL && check_id != NULL) {
             valueList_t *vl = getValueList(server_index, server_id, check_id, now, 0, opts, 0);
@@ -257,7 +281,7 @@ char* parseCommand(char *buf, unsigned long s_addr) {
         }
     } else if (strcmp(command, "deleteserver") == 0) {
         char *server_id = strtok(NULL, "|\n\r");
-        //printf("parseCommand: delete|%s\n", server_id);
+        printf("parseCommand: deleteserver|%s\n", server_id);
         deleteServerByName(server_index, server_id);
     } else if (strcmp(command, "get") == 0 || strcmp(command, "avg") == 0) {
         char *check_id = strtok(NULL, "|\n\r");
@@ -265,12 +289,17 @@ char* parseCommand(char *buf, unsigned long s_addr) {
         char *server_id = strtok(NULL, "|\n\r");
         char tmp_str[50];
         char *tmp_output_buf = calloc(BUFLEN, sizeof(char));
+        if (tmp_output_buf == NULL) {
+            printf("malloc pylon parseCommand tmp_output_buf FAILED\n");
+            exit(-1);
+        }
+        printf("malloc pylon parseCommand tmp_output_buf %p\n", tmp_output_buf);
         time_t first = 0;
         int range = 0;
         int size = 0;
         int server_count = 0;
 
-        //printf("parseCommand: get|%s|%s|%s\n", check_id, range_s, server_id);
+        printf("parseCommand: get|%s|%s|%s\n", check_id, range_s, server_id);
         range = atoi(range_s);
 
         valueList_t *vl = getValueList(server_index, server_id, check_id, now, range, opts,0);
@@ -344,8 +373,8 @@ char* parseCommand(char *buf, unsigned long s_addr) {
         free(tmp_output_buf);
         stats->gets++;
     } else if (strcmp(command, "reset") == 0) {
+        printf("parseCommand: reset\n");
         server_t *server = server_index->next;
-        printf("deleting all data\n");
 
         while(server != NULL) {
             server_index->next = server->next;
@@ -354,9 +383,8 @@ char* parseCommand(char *buf, unsigned long s_addr) {
         }
         server_index->next = NULL;
         strcpy(output_buf, "OK\n");
-
     } else if (strcmp(command, "status") == 0) {
-        //printf("parseCommand: status\n");
+        printf("parseCommand: status\n");
         char tmp_str[255];
         int server_count = getServerCount(server_index);
         int check_count = getCheckCount(server_index);
@@ -377,7 +405,7 @@ char* parseCommand(char *buf, unsigned long s_addr) {
         char *server_id = strtok(NULL, "|\n\r");
         char tmp2[1024];
 
-        //printf("parseCommand: checks|%s\n", server_id);
+        printf("parseCommand: checks|%s\n", server_id);
 
         while (server_id != NULL && strcmp(server_id,"EOF") != 0) {
             int i;
@@ -401,6 +429,7 @@ char* parseCommand(char *buf, unsigned long s_addr) {
                 }
                 printf("free pylon parseCommand tmp_str-1 %p\n", tmp_str);
                 free(tmp_str);
+                printf("command pylon parseCommand %s output_buf %d(%d)\n", command, strlen(output_buf), BUFLEN*sizeof(u_char));
             }
             server_id = strtok(NULL, "|\n\r");
         }
@@ -409,13 +438,13 @@ char* parseCommand(char *buf, unsigned long s_addr) {
     } else if (strcmp(command, "version") == 0) {
         char *tmp_str;
 
-        //printf("parseCommand:version\n");
+        printf("parseCommand:version\n");
         strcpy(output_buf, VERSION);
         strcat(output_buf, "\n");
     } else if (strcmp(command, "servers") == 0) {
         char *tmp_str;
 
-        //printf("parseCommand:servers\n");
+        printf("parseCommand:servers\n");
         tmp_str = getServerList(server_index);
         if (tmp_str != NULL) {
             strcpy(output_buf, tmp_str);
@@ -424,7 +453,7 @@ char* parseCommand(char *buf, unsigned long s_addr) {
         }
         strcat(output_buf, "\n");
     } else {
-        //printf("parseCommand: unknown command|%s\n", command);
+        printf("parseCommand: unknown command|%s\n", command);
         strcpy(output_buf, "unknown command\n");
     }
 
@@ -444,10 +473,11 @@ void on_read(int fd, short ev, void *arg) {
     stats->connections++;
 
     buf = malloc(BUFLEN * sizeof(u_char));
-    printf("malloc pylon on_read buf %p\n", buf);
     if (buf == NULL) {
-        err(1, "Malloc failed");
+        printf("malloc pylon on_read buf FAILED\n");
+        exit(-1);
     }
+    printf("malloc pylon on_read buf %p\n", buf);
 
     len = read(fd, buf, BUFLEN);
     if (len == 0) {
@@ -476,10 +506,11 @@ void on_read(int fd, short ev, void *arg) {
 
     if (output_buf != NULL && strlen(output_buf) > 0) {
         bufferq = malloc(sizeof(struct bufferq));
-        printf("malloc pylon on_read bufferq %p\n", bufferq);
         if (bufferq == NULL) {
-            err(1, "Malloc failed");
+            printf("malloc pylon on_read bufferq FAILED\n");
+            exit(-1);
         }
+        printf("malloc pylon on_read bufferq %p\n", bufferq);
         bufferq->buf = output_buf;
         bufferq->len = strlen(output_buf);
         bufferq->offset = 0;
@@ -499,7 +530,6 @@ void on_write(int fd, short ev, void *arg) {
     struct client *client = (struct client *)arg;
     struct bufferq *bufferq;
     int len;
-
 
     bufferq = TAILQ_FIRST(&client->writeq);
     if (bufferq == NULL) {
@@ -578,6 +608,7 @@ void dump_data(int fd, short ev, void *arg) {
         // Dump the current check to the temp file.
         dump_config->checkdump[0] = 0;
 
+        printf("dumping %s. buffer size: %d\n", dump_config->check->name, (BUFLEN*sizeof(u_char)));
         dumpCheck(dump_config->check, dump_config->server->name, now, dump_config->checkdump);
         write(dump_config->dump_fd, dump_config->checkdump, strlen(dump_config->checkdump));
         stats->dumps++;
@@ -604,7 +635,9 @@ void on_accept(int fd, short ev, void *arg) {
     if (setnonblock(client_fd) < 0) warn("failed to set client socket non-blocking");
 
     client = malloc(sizeof(struct client));
-    if (client == NULL) err(1, "Malloc failed");
+    if (client == NULL) {
+        printf("malloc pylon on_accept client FAILED\n");
+    }
     printf("malloc pylon on_accept client %p\n", client);
 
     event_set(&client->ev_read, client_fd, EV_READ|EV_PERSIST, on_read, client);
@@ -673,9 +706,17 @@ int main(int argc, char **argv) {
 
     srand(time(NULL));
     opts = malloc(sizeof(vlopts_t));
+    if (opts == NULL) {
+        printf("malloc pylon main opts FAILED\n");
+        exit(-1);
+    }
     opts->max_buckets = MAX_BUCKETS;
     opts->bucket_size = BUCKET_SIZE;
     opts->buckets = malloc(sizeof(int) * opts->max_buckets);
+    if (opts->buckets == NULL) {
+        printf("malloc pylon main opts->buckets FAILED\n");
+        exit(-1);
+    }
     opts->bucket_count = 4;
     opts->cleanup =  86400;
     opts->buckets[0] = 300;
@@ -684,6 +725,10 @@ int main(int argc, char **argv) {
     opts->buckets[3] = 86400;
 
     dump_config = malloc(sizeof(dump_config_t));
+    if (dump_config == NULL) {
+        printf("malloc pylon main dump_config FAILED\n");
+        exit(-1);
+    }
     dump_config->dump_fd = 0;
     dump_config->frequency = 25;
 
@@ -779,12 +824,20 @@ int main(int argc, char **argv) {
 
     /* initialize stats */
     stats = malloc(sizeof(stats_t));
+    if (stats == NULL) {
+        printf("malloc pylon main stats FAILED\n");
+        exit(-1);
+    }
     stats->commands = 0;
     stats->gets = 0;
     stats->adds = 0;
     stats->start_time = time(NULL);
 
     command_overflow_buffers = malloc(sizeof(overflow_buffer_t));
+    if (command_overflow_buffers == NULL) {
+        printf("malloc pylon main command_overflow_buffers FAILED\n");
+        exit(-1);
+    }
     command_overflow_buffers->next = NULL;
     command_overflow_buffers->prev = NULL;
 
@@ -822,6 +875,10 @@ int main(int argc, char **argv) {
     if (dump_config->dump_file != NULL) {
         dump_config->dump_file_tmp = malloc(sizeof(char) * (strlen(dump_config->dump_file) + 5));
         dump_config->checkdump = malloc(BUFLEN*sizeof(u_char));
+        if (dump_config->checkdump == NULL) {
+            printf("malloc pylon main dump_config->checkdump FAILED\n");
+            exit(-1);
+        }
         strcpy(dump_config->dump_file_tmp, dump_config->dump_file);
         strcat(dump_config->dump_file_tmp, ".tmp");
 
@@ -834,6 +891,10 @@ int main(int argc, char **argv) {
             char read_buf[1024];
             char *read_buf_tmp;
             char *output_buf = malloc(BUFLEN*sizeof(u_char));
+            if (output_buf == NULL) {
+                printf("malloc pylon main output_buf FAILED\n");
+                exit(-1);
+            }
             printf("malloc pylon main output_buf %p\n", output_buf);
             output_buf[0] = 0;
             char *pos;
@@ -841,6 +902,7 @@ int main(int argc, char **argv) {
             while (read_size = read(dump_fd, read_buf, 1024)){
                 read_buf[read_size] = 0;
                 read_buf_tmp = read_buf;
+                // Each line is a separate record.
                 while (pos = strchr(read_buf_tmp, '\n')) {
                     pos[0] = 0;
                     strcat(output_buf, read_buf_tmp);
@@ -857,7 +919,11 @@ int main(int argc, char **argv) {
                     //printf("parseCommand: load|%s|%s|%d|%d|%d\n", check_id, server_id, first, size, step);
 
                     double *data = malloc(size*sizeof(double));
-                    //printf("malloc pylon main data %p\n", data);
+                    if (data == NULL) {
+                        printf("malloc pylon main data FAILED\n");
+                        exit(-1);
+                    }
+
                     char *d = strtok(NULL, "|\n\r");
                     for (i=0;i<size;i++) {
                         if (d != NULL) {
@@ -880,6 +946,7 @@ int main(int argc, char **argv) {
                     read_buf_tmp = pos + 1;
                 }
                 strcat(output_buf, read_buf_tmp);
+                printf("strlen pylon main output_buf %d (%d)\n", strlen(output_buf), BUFLEN*sizeof(u_char));
             }
             time_t load_end = time(NULL);
             printf("free pylon main output_buf %p\n", output_buf);
