@@ -292,11 +292,11 @@ void dumpValueList(char *check, char *server, valueList_t *vl, time_t now, char 
 
     int i;
     for (i=0; i<vl->size; i++) {
-        if (data[i] < LIMIT) {
+        //if (data[i] < LIMIT) {
             sprintf(output_buf + strlen(output_buf),"%.5f|",data[i]);
-        } else {
-            sprintf(output_buf + strlen(output_buf),"%d|",LIMIT);
-        }
+        //} else {
+        //    sprintf(output_buf + strlen(output_buf),"%d|",LIMIT);
+        //}
 
     }
     output_buf[strlen(output_buf) -1] = '\n';

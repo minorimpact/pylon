@@ -576,15 +576,23 @@ void dump_data(int fd, short ev, void *arg) {
     dump_config_t *dump_config = arg;
 
     // Advance the current dump pointer.
+    // If we're sitting on a valid check, so move the next one.
     if (dump_config->check != NULL) {
         dump_config->check = dump_config->check->next;
     }
+
+    // Check is null, so we were either before the first one or after
+    // the last one.
     if (dump_config->check == NULL) {
+        // Server is null, so this must be our first time through.
+        // Set the server to the first one on the list.
         if (dump_config->server == NULL) {
             dump_config->server = server_index->next;
+        // Otherwise, move us to the next server.
         } else {
             dump_config->server = dump_config->server->next;
         }
+        // Assuming we have a server, start with the first check.
         if (dump_config->server != NULL) {
             dump_config->check = dump_config->server->check->next;
         }
@@ -610,15 +618,25 @@ void dump_data(int fd, short ev, void *arg) {
         // Dump the current check to the temp file.
         dump_config->checkdump[0] = 0;
 
-        printf("dumping %s. buffer size: %d\n", dump_config->check->name, (BUFLEN*sizeof(u_char)));
+        printf("collecting %s/%s. buffer size: %d\n", dump_config->server->name, dump_config->check->name, (BUFLEN*sizeof(u_char)));
+        fflush(stdout);
         dumpCheck(dump_config->check, dump_config->server->name, now, dump_config->checkdump);
-        write(dump_config->dump_fd, dump_config->checkdump, strlen(dump_config->checkdump));
+        fflush(stdout);
+        printf("writing to dump file %s\n", dump_config->dump_file_tmp);
+        fflush(stdout);
+        int ret;
+        ret = write(dump_config->dump_fd, dump_config->checkdump, strlen(dump_config->checkdump));
+        if (ret < 0) {
+            printf("error writing to %s: %d\n", dump_config->dump_file_tmp, ret);
+            exit(-1);
+        } else if ( ret < strlen(dump_config->checkdump)) {
+            printf("only wrote %d bytes to %s, should have written %d\n", ret, dump_config->dump_file_tmp, strlen(dump_config->checkdump));
+            exit(-1);
+        }
         stats->dumps++;
     }
 
     // Re-add the event so it fires again.
-    dump_config->tv.tv_sec = 0;
-    dump_config->tv.tv_usec = (int) 1000000/dump_config->frequency;
     event_add(&dump_config->ev_dump, &dump_config->tv);
 }
 
@@ -961,9 +979,12 @@ int main(int argc, char **argv) {
         close(dump_fd);
 
         event_set(&dump_config->ev_dump, -1, EV_TIMEOUT|EV_PERSIST, dump_data, dump_config);
-        dump_config->tv.tv_sec = 1;
-        dump_config->tv.tv_usec = 0;
-        event_add(&dump_config->ev_dump, &dump_config->tv);
+        dump_config->tv.tv_sec = 0;
+        dump_config->tv.tv_usec = (int) 1000000/dump_config->frequency;
+        struct timeval tmp_tv;
+        tmp_tv.tv_sec = 10;
+        tmp_tv.tv_usec = 0;
+        event_add(&dump_config->ev_dump, &tmp_tv);
     }
     //exit(0);
 
