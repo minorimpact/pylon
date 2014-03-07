@@ -2,7 +2,8 @@
 
 
 my %malloc;
-open(LOG, "/tmp/pylon.log");
+#open(LOG, "/tmp/pylon.log");
+open(LOG, "/tmp/placeholder.log");
 seek(LOG,-50000000, 2);
 while(<LOG>) {
     my $line = $_;

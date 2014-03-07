@@ -1,6 +1,6 @@
 /*
  * yum install gcc libevent-devel
- * gcc -levent placeholder.c servercheck.c valuelist.c daemon.c -o placeholder
+ * gcc -levent placeholder.c daemon.c -o pylon
  */
 
 #include "pylon.h"
@@ -29,9 +29,6 @@
 /* Libevent. */
 #include <event.h>
 
-#include "servercheck.h"
-
-
 /*
 #define EVENT_DBG_NONE 0
 #define EVENT_DBG_ALL 0xffffffffu
@@ -43,7 +40,6 @@
 #define SERVER_PORT 5555
 #define MAX_BUCKETS 6
 #define BUCKET_SIZE 575
-#define CLEANUP_TIMEOUT 3600
 #define VERSION "0.0.0-16"
 
 /* Length of each buffer in the buffer queue.  Also becomes the amount
@@ -82,25 +78,12 @@ typedef struct overflow_buffer {
     struct overflow_buffer *next;
 } overflow_buffer_t;
 
-typedef struct dump_config {
-    char *dump_file;
-    char *dump_file_tmp;
-    char *checkdump;
-    struct event ev_dump;   
-    struct timeval tv;
-    int dump_fd;
-    int frequency;
-    server_t *server;
-    check_t *check;
-} dump_config_t;
-
 overflow_buffer_t *command_overflow_buffers;
-server_t *server_index;
 vlopts_t *opts;
 stats_t *stats;
-dump_config_t *dump_config;
 time_t now;
 struct event_base *event_base;
+char* max_memory = 0;
 
 int setnonblock(int fd) {
     int flags;
@@ -117,6 +100,27 @@ int setnonblock(int fd) {
     return 0;
 }
 
+void junk_data (int fd, short ev, void *arg) {
+    struct timeval tv;
+    char *junk;
+    
+    junk = malloc(BUFLEN*sizeof(u_char));
+    if (junk == NULL) {
+        printf("malloc pylon junk_data junk FAILED\n");
+        fflush(stdout);
+        exit(-1);
+    }
+    if (junk > max_memory) max_memory = junk;
+    printf("max_memory=%p\n", max_memory);
+    printf("malloc pylon junk_data junk %p\n", junk);
+
+    printf("free pylon junk_data junk %p\n", junk);
+    free(junk);
+
+    tv.tv_sec = 0;
+    tv.tv_usec = 1000000/30;
+    event_add((struct event *)arg, &tv);
+}
 
 char* parseCommand(char *buf, unsigned long s_addr) {
     int i;
@@ -130,10 +134,13 @@ char* parseCommand(char *buf, unsigned long s_addr) {
 
     output_buf = malloc(BUFLEN*sizeof(u_char));
     if (output_buf == NULL) {
-        printf("malloc pylon command output_buf FAILED\n");
+        printf("malloc pylon parseCommand output_buf FAILED\n");
+        fflush(stdout);
         exit(-1);
     }
-    printf("malloc pylon command output_buf %p\n", output_buf);
+    if (output_buf > max_memory) max_memory = output_buf;
+    printf("max_memory=%p\n", max_memory);
+    printf("malloc pylon parseCommand output_buf %p\n", output_buf);
     output_buf[0] = 0;
 
     if (command_overflow_buffers->next != NULL) {
@@ -144,6 +151,7 @@ char* parseCommand(char *buf, unsigned long s_addr) {
                 tmp = malloc((len + strlen(ob->command_overflow_buffer) + 1) * sizeof(char));
                 if (tmp == NULL) {
                     printf("malloc pylon parseCommand tmp-1 FAILED\n");
+                    fflush(stdout);
                     exit(-1);
                 }
                 printf("malloc pylon parseCommand tmp-1 %p\n", tmp);
@@ -170,6 +178,7 @@ char* parseCommand(char *buf, unsigned long s_addr) {
         tmp = malloc((len+1) * sizeof(char));
         if (tmp == NULL) {
             printf("malloc pylon parseCommand tmp-2 FAILED\n");
+            fflush(stdout);
             exit(-1);
         }
         printf("malloc pylon parseCommand tmp-2 %p\n", tmp);
@@ -181,6 +190,7 @@ char* parseCommand(char *buf, unsigned long s_addr) {
         ob = malloc(sizeof(overflow_buffer_t));
         if (ob == NULL) {
             printf("malloc pylon parseCommand ob FAILED\n");
+            fflush(stdout);
             exit(-1);
         }
         printf("malloc pylon parseCommand ob %p\n", ob);
@@ -188,6 +198,7 @@ char* parseCommand(char *buf, unsigned long s_addr) {
         ob->command_overflow_buffer = malloc((strlen(tmp) + 1) * sizeof(char));
         if (ob->command_overflow_buffer == NULL) {
             printf("malloc pylon parseCommand ob->command_overflow_buffer FAILED\n");
+            fflush(stdout);
             exit(-1);
         }
         printf("malloc pylon parseCommand ob->command_overflow_buffer %p\n", ob->command_overflow_buffer);
@@ -207,9 +218,6 @@ char* parseCommand(char *buf, unsigned long s_addr) {
     //if (strcmp(command, "status") == 0) {
         printf("parseCommand: status\n");
         char tmp_str[255];
-        int server_count = getServerCount(server_index);
-        int check_count = getCheckCount(server_index);
-        long int size = serverIndexSize(server_index);
         int overflow_buffer_count = 0;
         overflow_buffer_t *ob = command_overflow_buffers->next;
 
@@ -217,7 +225,7 @@ char* parseCommand(char *buf, unsigned long s_addr) {
             overflow_buffer_count++;
             ob = ob->next;
         }
-        sprintf(tmp_str, "servers=%d checks=%d size=%ld uptime=%d connections=%d commands=%d adds=%d gets=%d overflow_buffer_count=%d dumps=%d\n", server_count, check_count, size, (now - stats->start_time), stats->connections, stats->commands, stats->adds, stats->gets, overflow_buffer_count, stats->dumps);
+        sprintf(tmp_str, "uptime=%d connections=%d commands=%d adds=%d gets=%d overflow_buffer_count=%d dumps=%d\n", (now - stats->start_time), stats->connections, stats->commands, stats->adds, stats->gets, overflow_buffer_count, stats->dumps);
         printf("%s", tmp_str);
 
         strcpy(output_buf, tmp_str);
@@ -242,6 +250,7 @@ void on_read(int fd, short ev, void *arg) {
     buf = malloc(BUFLEN * sizeof(u_char));
     if (buf == NULL) {
         printf("malloc pylon on_read buf FAILED\n");
+        fflush(stdout);
         exit(-1);
     }
     printf("malloc pylon on_read buf %p\n", buf);
@@ -275,6 +284,7 @@ void on_read(int fd, short ev, void *arg) {
         bufferq = malloc(sizeof(struct bufferq));
         if (bufferq == NULL) {
             printf("malloc pylon on_read bufferq FAILED\n");
+            fflush(stdout);
             exit(-1);
         }
         printf("malloc pylon on_read bufferq %p\n", bufferq);
@@ -311,7 +321,7 @@ void on_write(int fd, short ev, void *arg) {
             event_add(&client->ev_write, NULL);
             return;
         } else {
-            err(1, "write");
+            printf("ERR:write\n");
         }
     } else if ((bufferq->offset + len) < bufferq->len) {
         bufferq->offset += len;
@@ -329,85 +339,6 @@ void on_write(int fd, short ev, void *arg) {
     }
 }
 
-void cleanup_data (int fd, short ev, void *arg) {
-    cleanupServerIndex(server_index, now, opts->cleanup);
-    struct timeval tv;
-    tv.tv_sec = CLEANUP_TIMEOUT;
-    tv.tv_usec = 0;
-    event_add((struct event *)arg, &tv);
-}
-
-void dump_data(int fd, short ev, void *arg) {
-    dump_config_t *dump_config = arg;
-
-    fflush(stdout);
-
-    // Advance the current dump pointer.
-    // If we're sitting on a valid check, so move the next one.
-    if (dump_config->check != NULL) {
-        dump_config->check = dump_config->check->next;
-    }
-
-    // Check is null, so we were either before the first one or after
-    // the last one.
-    if (dump_config->check == NULL) {
-        // Server is null, so this must be our first time through.
-        // Set the server to the first one on the list.
-        if (dump_config->server == NULL) {
-            dump_config->server = server_index->next;
-        // Otherwise, move us to the next server.
-        } else {
-            dump_config->server = dump_config->server->next;
-        }
-        // Assuming we have a server, start with the first check.
-        if (dump_config->server != NULL) {
-            dump_config->check = dump_config->server->check->next;
-        }
-    } 
-
-    // Process the current pointer.
-    if (dump_config->check == NULL && dump_config->server == NULL && dump_config->dump_fd > 0) {
-        // Reached the end of the set.  Close the temp file, and swap it to live.
-        close(dump_config->dump_fd);
-        dump_config->dump_fd = 0;
-        rename(dump_config->dump_file_tmp, dump_config->dump_file);
-    } else if (dump_config->check != NULL && dump_config->server != NULL) {
-        // Sitting on a valid entry.  
-        if (dump_config->dump_fd < 1) {
-            // Temp file hasn't been created.  Do so.
-            unlink(dump_config->dump_file_tmp);
-            dump_config->dump_fd = open(dump_config->dump_file_tmp, O_WRONLY|O_CREAT, 0755);
-            if (dump_config->dump_fd < 0) {
-                printf("pylon.dump_data:Can't open %s for writing\n", dump_config->dump_file_tmp);
-                exit(-1);
-            }
-        }
-        // Dump the current check to the temp file.
-        dump_config->checkdump[0] = 0;
-
-        printf("collecting %s/%s. buffer size: %d\n", dump_config->server->name, dump_config->check->name, (BUFLEN*sizeof(u_char)));
-        fflush(stdout);
-        dumpCheck(dump_config->check, dump_config->server->name, now, dump_config->checkdump);
-        fflush(stdout);
-        printf("writing to dump file %s\n", dump_config->dump_file_tmp);
-        fflush(stdout);
-        int ret;
-        ret = write(dump_config->dump_fd, dump_config->checkdump, strlen(dump_config->checkdump));
-        if (ret < 0) {
-            printf("error writing to %s: %d\n", dump_config->dump_file_tmp, ret);
-            exit(-1);
-        } else if ( ret < strlen(dump_config->checkdump)) {
-            printf("only wrote %d bytes to %s, should have written %d\n", ret, dump_config->dump_file_tmp, strlen(dump_config->checkdump));
-            exit(-1);
-        }
-        stats->dumps++;
-    }
-
-    fflush(stdout);
-    // Re-add the event so it fires again.
-    event_add(&dump_config->ev_dump, &dump_config->tv);
-}
-
 void on_accept(int fd, short ev, void *arg) {
     int client_fd;
     struct sockaddr_in client_addr;
@@ -420,7 +351,7 @@ void on_accept(int fd, short ev, void *arg) {
         return;
     }
 
-    if (setnonblock(client_fd) < 0) warn("failed to set client socket non-blocking");
+    if (setnonblock(client_fd) < 0) printf("WARN:failed to set client socket non-blocking\n");
 
     client = malloc(sizeof(struct client));
     if (client == NULL) {
@@ -444,8 +375,6 @@ void usage(void) {
     printf("usage: pylon <options>\n");
     printf("version: %s\n", VERSION);
     printf( "-d            run as a daemon\n"
-           "-D <checks/s> dump frequency; will write X checks per second.\n"
-           "-F <file>     dump data to <file>\n"
            "-h            print this message and exit\n"
            "-L <file>     log to <file>\n"
            "-P <file>     save PID in <file>, only used with -d option\n"
@@ -489,13 +418,13 @@ int main(int argc, char **argv) {
     int reuseaddr_on = 1;
     int c;
     int i;
-    int cleanup;
     int step;
 
     srand(time(NULL));
     opts = malloc(sizeof(vlopts_t));
     if (opts == NULL) {
         printf("malloc pylon main opts FAILED\n");
+        fflush(stdout);
         exit(-1);
     }
     opts->max_buckets = MAX_BUCKETS;
@@ -503,47 +432,25 @@ int main(int argc, char **argv) {
     opts->buckets = malloc(sizeof(int) * opts->max_buckets);
     if (opts->buckets == NULL) {
         printf("malloc pylon main opts->buckets FAILED\n");
+        fflush(stdout);
         exit(-1);
     }
     opts->bucket_count = 4;
-    opts->cleanup =  86400;
     opts->buckets[0] = 300;
     opts->buckets[1] = 1800;
     opts->buckets[2] = 7200;
     opts->buckets[3] = 86400;
 
-    dump_config = malloc(sizeof(dump_config_t));
-    if (dump_config == NULL) {
-        printf("malloc pylon main dump_config FAILED\n");
-        exit(-1);
-    }
-    dump_config->dump_fd = 0;
-    dump_config->frequency = 25;
-
     char *cvalue = NULL;
     bool do_daemonize = false;
     char *pid_file = "/var/run/pylon.pid";
     char *log_file = "/var/log/pylon.log";
-    char *dump_file = NULL;
 
 
-    while ((c = getopt(argc, argv, "hdP:s:c:L:F:vD:")) != -1) {
+    while ((c = getopt(argc, argv, "hdP:s:L:v")) != -1) {
         switch (c) {
-            case 'c':
-                cleanup = atoi(optarg);
-                opts->cleanup = cleanup;
-                break;
             case 'd':
                 do_daemonize = true;
-                break;
-            case 'D':
-                dump_config->frequency = atoi(optarg);
-                if (dump_config->frequency < 1) {
-                    dump_config->frequency = 1;
-                }
-                break;
-            case 'F':
-                dump_config->dump_file = optarg;
                 break;
             case 'h':
                 usage();
@@ -592,7 +499,8 @@ int main(int argc, char **argv) {
         printf("daemonizing.\n");
         res = daemonize(0, 0);
         if (res == -1) {
-            printf("failed to daemon() in order to daemonize\n");
+            printf("ERR:failed to daemon() in order to daemonize\n");
+            fflush(stdout);
             exit(-1);
         }
         save_pid(getpid(), pid_file);
@@ -600,11 +508,18 @@ int main(int argc, char **argv) {
         printf("log_file:'%s'\n",log_file);
         int fd = open(log_file, O_APPEND | O_WRONLY | O_CREAT, 0755);
         if (fd < 0) {
-            printf("Can't open logfile %s for writing\n", log_file);
+            printf("ERR:Can't open logfile %s for writing\n", log_file);
+            fflush(stdout);
             exit(-1);
         }        
         if(dup2(fd, STDOUT_FILENO) < 0) {
-            printf("failed to dup2 stdout\n");
+            printf("ERR:failed to dup2 stdout\n");
+            fflush(stdout);
+            exit(-1);
+        }
+        if(dup2(fd, STDERR_FILENO) < 0) {
+            printf("ERR:failed to dup2 stderr\n");
+            fflush(stdout);
             exit(-1);
         }
     }
@@ -614,6 +529,7 @@ int main(int argc, char **argv) {
     stats = malloc(sizeof(stats_t));
     if (stats == NULL) {
         printf("malloc pylon main stats FAILED\n");
+        fflush(stdout);
         exit(-1);
     }
     stats->commands = 0;
@@ -624,6 +540,7 @@ int main(int argc, char **argv) {
     command_overflow_buffers = malloc(sizeof(overflow_buffer_t));
     if (command_overflow_buffers == NULL) {
         printf("malloc pylon main command_overflow_buffers FAILED\n");
+        fflush(stdout);
         exit(-1);
     }
     command_overflow_buffers->next = NULL;
@@ -631,130 +548,30 @@ int main(int argc, char **argv) {
 
     event_base = event_init();
 
-    server_index = newServerIndex();
-
     listen_fd = socket(AF_INET, SOCK_STREAM, 0);
-    if (listen_fd < 0) err(1, "listen failed");
-    if (setsockopt(listen_fd, SOL_SOCKET, SO_REUSEADDR, &reuseaddr_on, sizeof(reuseaddr_on)) == -1) err(1, "setsockopt failed");
+    if (listen_fd < 0) printf("ERR:listen failed");
+    if (setsockopt(listen_fd, SOL_SOCKET, SO_REUSEADDR, &reuseaddr_on, sizeof(reuseaddr_on)) == -1) printf("ERR:setsockopt failed\n");
     
     memset(&listen_addr, 0, sizeof(listen_addr));
     listen_addr.sin_family = AF_INET;
     listen_addr.sin_addr.s_addr = INADDR_ANY;
     listen_addr.sin_port = htons(SERVER_PORT);
-    if (bind(listen_fd, (struct sockaddr *)&listen_addr, sizeof(listen_addr)) < 0) err(1, "bind failed");
+    if (bind(listen_fd, (struct sockaddr *)&listen_addr, sizeof(listen_addr)) < 0) printf("ERR:bind failed\n");
 
-    if (listen(listen_fd, 5) < 0) err(1, "listen failed");
+    if (listen(listen_fd, 5) < 0) printf("ERR:listen failed\n");
 
-    if (setnonblock(listen_fd) < 0) err(1, "failed to set server socket to non-blocking");
+    if (setnonblock(listen_fd) < 0) printf("ERR:failed to set server socket to non-blocking\n");
 
     struct event ev_accept;
     event_set(&ev_accept, listen_fd, EV_READ|EV_PERSIST, on_accept, NULL);
     event_add(&ev_accept, NULL);
 
-    // Add cleanup event
-    struct event ev_cleanup;
-    event_set(&ev_cleanup, -1, EV_TIMEOUT|EV_PERSIST, cleanup_data, &ev_cleanup);
+    struct event ev_junk;
+    event_set(&ev_junk, -1, EV_TIMEOUT|EV_PERSIST, junk_data, &ev_junk);
     struct timeval tv;
-    tv.tv_sec = CLEANUP_TIMEOUT;
-    tv.tv_usec = 0;
-    event_add(&ev_cleanup, &tv);
-
-    // Add dumper, if enabled.
-    if (dump_config->dump_file != NULL) {
-        dump_config->dump_file_tmp = malloc(sizeof(char) * (strlen(dump_config->dump_file) + 5));
-        dump_config->checkdump = malloc(BUFLEN*sizeof(u_char));
-        if (dump_config->checkdump == NULL) {
-            printf("malloc pylon main dump_config->checkdump FAILED\n");
-            exit(-1);
-        }
-        strcpy(dump_config->dump_file_tmp, dump_config->dump_file);
-        strcat(dump_config->dump_file_tmp, ".tmp");
-
-        // Load data from existing dump file
-        int dump_fd = open(dump_config->dump_file, O_RDONLY);
-        if ( dump_fd > 0) {
-            time_t load_start = time(NULL);
-            int load_count = 0;
-            printf("loading data from %s: %d\n", dump_config->dump_file, load_start);
-            char read_buf[1024];
-            char *read_buf_tmp;
-            char *output_buf = malloc(BUFLEN*sizeof(u_char));
-            if (output_buf == NULL) {
-                printf("malloc pylon main output_buf FAILED\n");
-                exit(-1);
-            }
-            printf("malloc pylon main output_buf %p\n", output_buf);
-            output_buf[0] = 0;
-            char *pos;
-            int read_size;
-            while (read_size = read(dump_fd, read_buf, 1024)){
-                read_buf[read_size] = 0;
-                read_buf_tmp = read_buf;
-                // Each line is a separate record.
-                while (pos = strchr(read_buf_tmp, '\n')) {
-                    pos[0] = 0;
-                    strcat(output_buf, read_buf_tmp);
-                    //printf("output='%s'\n",output_buf);
-
-                    char *check_id = strtok(output_buf, "|\n\r");
-                    char *server_id = strtok(NULL, "|\n\r");
-                    char *first_s = strtok(NULL, "|\n\r");
-                    char *size_s = strtok(NULL, "|\n\r");
-                    char *step_s = strtok(NULL, "|\n\r");
-                    time_t first = atoi(first_s);
-                    int size = atoi(size_s);
-                    int step = atoi(step_s);
-                    //printf("parseCommand: load|%s|%s|%d|%d|%d\n", check_id, server_id, first, size, step);
-
-                    double *data = malloc(size*sizeof(double));
-                    if (data == NULL) {
-                        printf("malloc pylon main data FAILED\n");
-                        exit(-1);
-                    }
-
-                    char *d = strtok(NULL, "|\n\r");
-                    for (i=0;i<size;i++) {
-                        if (d != NULL) {
-                            data[i] = atof(d);
-                            d = strtok(NULL, "|\n\r");
-                        } else {
-                            data[i] = 0.0/0.0;
-                        }
-                    }
-
-                    if (server_id != NULL && check_id != NULL && size > 0 && step > 0) {
-                        loadData(server_index, server_id, check_id, first, size, step, data, now, opts);
-                        load_count++;
-                    } else {
-                        //printf("free pylon main data %p\n", data);
-                        free(data);
-                    }
-
-                    output_buf[0] = 0;
-                    read_buf_tmp = pos + 1;
-                }
-                strcat(output_buf, read_buf_tmp);
-                printf("strlen pylon main output_buf %d (%d)\n", strlen(output_buf), BUFLEN*sizeof(u_char));
-            }
-            time_t load_end = time(NULL);
-            printf("free pylon main output_buf %p\n", output_buf);
-            free(output_buf);
-            printf("finished loading data from %s: %d\n", dump_config->dump_file, load_end);
-            if (load_end > load_start) {
-                printf("load time: %d seconds, %d checks, %.2f records/sec\n", (load_end - load_start), (load_count/4), ((load_count/4)/(load_end-load_start)));
-            }
-        }
-        close(dump_fd);
-
-        event_set(&dump_config->ev_dump, -1, EV_TIMEOUT|EV_PERSIST, dump_data, dump_config);
-        dump_config->tv.tv_sec = 0;
-        dump_config->tv.tv_usec = (int) 1000000/dump_config->frequency;
-        struct timeval tmp_tv;
-        tmp_tv.tv_sec = 10;
-        tmp_tv.tv_usec = 0;
-        event_add(&dump_config->ev_dump, &tmp_tv);
-    }
-    //exit(0);
+    tv.tv_sec = 0;
+    tv.tv_usec = 1000000/30;
+    event_add(&ev_junk, &tv);
 
     event_dispatch();
 

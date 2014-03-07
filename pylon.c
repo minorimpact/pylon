@@ -1,6 +1,4 @@
 /*
- * libevent echo server example.
- *
  * yum install gcc libevent-devel
  * gcc -levent pylon.c servercheck.c valuelist.c daemon.c -o pylon
  */
