@@ -100,28 +100,6 @@ int setnonblock(int fd) {
     return 0;
 }
 
-void junk_data (int fd, short ev, void *arg) {
-    struct timeval tv;
-    char *junk;
-    
-    junk = malloc(BUFLEN*sizeof(u_char));
-    if (junk == NULL) {
-        printf("malloc pylon junk_data junk FAILED\n");
-        fflush(stdout);
-        exit(-1);
-    }
-    if (junk > max_memory) max_memory = junk;
-    printf("max_memory=%p\n", max_memory);
-    printf("malloc pylon junk_data junk %p\n", junk);
-
-    printf("free pylon junk_data junk %p\n", junk);
-    free(junk);
-
-    tv.tv_sec = 0;
-    tv.tv_usec = 1000000/30;
-    event_add((struct event *)arg, &tv);
-}
-
 char* parseCommand(char *buf, unsigned long s_addr) {
     int i;
     char *tmp = NULL;
@@ -215,7 +193,6 @@ char* parseCommand(char *buf, unsigned long s_addr) {
     }
 
     command = strtok(tmp, "|\n\r");
-    //if (strcmp(command, "status") == 0) {
         printf("parseCommand: status\n");
         char tmp_str[255];
         int overflow_buffer_count = 0;
@@ -230,7 +207,6 @@ char* parseCommand(char *buf, unsigned long s_addr) {
 
         strcpy(output_buf, tmp_str);
 
-    //}
 
     // Blank line signals the end of output.
     strcat(output_buf, "\n");
@@ -347,7 +323,7 @@ void on_accept(int fd, short ev, void *arg) {
 
     client_fd = accept(fd, (struct sockaddr *)&client_addr, &client_len);
     if (client_fd == -1) {
-        warn("accept failed");
+        printf("WARN:accept failed\n");
         return;
     }
 
@@ -549,7 +525,7 @@ int main(int argc, char **argv) {
     event_base = event_init();
 
     listen_fd = socket(AF_INET, SOCK_STREAM, 0);
-    if (listen_fd < 0) printf("ERR:listen failed");
+    if (listen_fd < 0) printf("ERR:listen failed\n");
     if (setsockopt(listen_fd, SOL_SOCKET, SO_REUSEADDR, &reuseaddr_on, sizeof(reuseaddr_on)) == -1) printf("ERR:setsockopt failed\n");
     
     memset(&listen_addr, 0, sizeof(listen_addr));
@@ -565,13 +541,6 @@ int main(int argc, char **argv) {
     struct event ev_accept;
     event_set(&ev_accept, listen_fd, EV_READ|EV_PERSIST, on_accept, NULL);
     event_add(&ev_accept, NULL);
-
-    struct event ev_junk;
-    event_set(&ev_junk, -1, EV_TIMEOUT|EV_PERSIST, junk_data, &ev_junk);
-    struct timeval tv;
-    tv.tv_sec = 0;
-    tv.tv_usec = 1000000/30;
-    event_add(&ev_junk, &tv);
 
     event_dispatch();
 
