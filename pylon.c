@@ -88,6 +88,7 @@ typedef struct dump_config {
     struct timeval tv;
     int dump_fd;
     int frequency;
+    int loading;
     server_t *server;
     check_t *check;
 } dump_config_t;
@@ -99,7 +100,7 @@ stats_t *stats;
 dump_config_t *dump_config;
 time_t now;
 struct event_base *event_base;
-char* max_memory = 0;
+char* max_memory;
 
 int setnonblock(int fd) {
     int flags;
@@ -132,7 +133,8 @@ char* parseCommand(char *buf, unsigned long s_addr) {
         fflush(stdout);
         exit(-1);
     }
-    if (output_buf > max_memory) max_memory = output_buf;
+
+    if ((char *)output_buf > (char *)max_memory) max_memory = output_buf;
     printf("max_memory=%p\n", max_memory);
     printf("malloc pylon parseCommand output_buf %p\n", output_buf);
     output_buf[0] = 0;
@@ -505,7 +507,6 @@ void on_read(int fd, short ev, void *arg) {
         free(buf);
         return;
     }
-    stats->pending++;
 
     buf[len] = 0;
     char *output_buf = parseCommand(buf, client->client_s_addr);
@@ -523,6 +524,7 @@ void on_read(int fd, short ev, void *arg) {
         bufferq->offset = 0;
         TAILQ_INSERT_TAIL(&client->writeq, bufferq, entries);
 
+        stats->pending++;
         event_add(&client->ev_write, NULL);
     } else if (output_buf != NULL) {
         printf("free pylon on_read output_buf %p\n", output_buf);
@@ -537,6 +539,10 @@ void on_write(int fd, short ev, void *arg) {
     struct client *client = (struct client *)arg;
     struct bufferq *bufferq;
     int len;
+
+    if (stats->pending > 0) {
+        stats->pending--;
+    }
 
     bufferq = TAILQ_FIRST(&client->writeq);
     if (bufferq == NULL) {
@@ -564,9 +570,6 @@ void on_write(int fd, short ev, void *arg) {
     free(bufferq->buf);
     printf("free pylon on_write bufferq %p\n", bufferq);
     free(bufferq);
-    if (stats->pending > 0) {
-        stats->pending--;
-    }
 }
 
 void cleanup_data (int fd, short ev, void *arg) {
@@ -582,68 +585,87 @@ void dump_data(int fd, short ev, void *arg) {
 
     fflush(stdout);
 
-    // Advance the current dump pointer.
-    // If we're sitting on a valid check, so move the next one.
-    if (dump_config->check != NULL) {
-        dump_config->check = dump_config->check->next;
-    }
-
-    // Check is null, so we were either before the first one or after
-    // the last one.
-    if (dump_config->check == NULL) {
-        // Server is null, so this must be our first time through.
-        // Set the server to the first one on the list.
-        if (dump_config->server == NULL) {
-            dump_config->server = server_index->next;
-        // Otherwise, move us to the next server.
+    if (stats->pending == 0) {
+        if (dump_config->loading == 1) {
+            // Haven't implemented this yet, but I eventually want to move the data loading
+            // to a staggered one-check-at-a-time method, rather than loading everything
+            // at once at startup.
         } else {
-            dump_config->server = dump_config->server->next;
-        }
-        // Assuming we have a server, start with the first check.
-        if (dump_config->server != NULL) {
-            dump_config->check = dump_config->server->check->next;
-        }
-    } 
-
-    // Process the current pointer.
-    if (dump_config->check == NULL && dump_config->server == NULL && dump_config->dump_fd > 0) {
-        // Reached the end of the set.  Close the temp file, and swap it to live.
-        close(dump_config->dump_fd);
-        dump_config->dump_fd = 0;
-        rename(dump_config->dump_file_tmp, dump_config->dump_file);
-    } else if (dump_config->check != NULL && dump_config->server != NULL) {
-        // Sitting on a valid entry.  
-        if (dump_config->dump_fd < 1) {
-            // Temp file hasn't been created.  Do so.
-            unlink(dump_config->dump_file_tmp);
-            dump_config->dump_fd = open(dump_config->dump_file_tmp, O_WRONLY|O_CREAT, 0755);
-            if (dump_config->dump_fd < 0) {
-                printf("pylon.dump_data:Can't open %s for writing\n", dump_config->dump_file_tmp);
-                exit(-1);
+            // Advance the current dump pointer.
+            if (dump_config->check != NULL) {
+                // We're sitting on a valid check, so move to the next one.
+                dump_config->check = dump_config->check->next;
             }
-        }
-        // Dump the current check to the temp file.
-        dump_config->checkdump[0] = 0;
 
-        printf("collecting %s/%s. buffer size: %d\n", dump_config->server->name, dump_config->check->name, (BUFLEN*sizeof(u_char)));
-        fflush(stdout);
-        dumpCheck(dump_config->check, dump_config->server->name, now, dump_config->checkdump);
-        fflush(stdout);
-        printf("writing to dump file %s\n", dump_config->dump_file_tmp);
-        fflush(stdout);
-        int ret;
-        ret = write(dump_config->dump_fd, dump_config->checkdump, strlen(dump_config->checkdump));
-        if (ret < 0) {
-            printf("error writing to %s: %d\n", dump_config->dump_file_tmp, ret);
-            exit(-1);
-        } else if ( ret < strlen(dump_config->checkdump)) {
-            printf("only wrote %d bytes to %s, should have written %d\n", ret, dump_config->dump_file_tmp, strlen(dump_config->checkdump));
-            exit(-1);
+            if (dump_config->check == NULL) {
+                // Check is null, so we're either before the first one or after
+                // the last one.
+                if (dump_config->server == NULL) {
+                    // Server is null, so this must be our first time through.
+                    // Set the server to the first one on the list.
+                    dump_config->server = server_index->next;
+                } else {
+                    // Otherwise, move us to the next server.
+                    dump_config->server = dump_config->server->next;
+                }
+                // Assuming we have a server, start with the first check.
+                if (dump_config->server != NULL) {
+                    dump_config->check = dump_config->server->check->next;
+                }
+            } 
+
+            // Process the current pointer.
+            if (dump_config->check == NULL && dump_config->server == NULL && dump_config->dump_fd > 0) {
+                // Reached the end of the set.  Close the temp file, and swap it to live.
+                printf("closing %s\n", dump_config->dump_file_tmp);
+                fflush(stdout);
+                close(dump_config->dump_fd);
+                dump_config->dump_fd = 0;
+                printf("renaming %s to %s\n", dump_config->dump_file_tmp, dump_config->dump_file);
+                fflush(stdout);
+                rename(dump_config->dump_file_tmp, dump_config->dump_file);
+            } else if (dump_config->check != NULL && dump_config->server != NULL) {
+                // Sitting on a valid entry.  
+                if (dump_config->dump_fd < 1) {
+                    // Temp file hasn't been created.  Do so.
+                    printf("removing %s\n", dump_config->dump_file_tmp);
+                    fflush(stdout);
+                    unlink(dump_config->dump_file_tmp);
+                    printf("opening %s\n", dump_config->dump_file_tmp);
+                    dump_config->dump_fd = open(dump_config->dump_file_tmp, O_WRONLY|O_CREAT, 0755);
+                    fflush(stdout);
+                    if (dump_config->dump_fd < 0) {
+                        printf("pylon.dump_data:Can't open %s for writing\n", dump_config->dump_file_tmp);
+                        fflush(stdout);
+                        exit(-1);
+                    }
+                }
+                // Dump the current check to the temp file.
+                dump_config->checkdump[0] = 0;
+
+                printf("collecting %s/%s. buffer size: %d\n", dump_config->server->name, dump_config->check->name, (BUFLEN*sizeof(u_char)));
+                printf("PENDING %d\n", stats->pending);
+                fflush(stdout);
+                dumpCheck(dump_config->check, dump_config->server->name, now, dump_config->checkdump);
+                fflush(stdout);
+                printf("writing to dump file %s\n", dump_config->dump_file_tmp);
+                fflush(stdout);
+                int ret;
+                ret = write(dump_config->dump_fd, dump_config->checkdump, strlen(dump_config->checkdump));
+                if (ret < 0) {
+                    printf("error writing to %s: %d\n", dump_config->dump_file_tmp, ret);
+                    fflush(stdout);
+                    exit(-1);
+                } else if ( ret < strlen(dump_config->checkdump)) {
+                    printf("only wrote %d bytes to %s, should have written %d\n", ret, dump_config->dump_file_tmp, strlen(dump_config->checkdump));
+                    fflush(stdout);
+                    exit(-1);
+                }
+                stats->dumps++;
+            }
+            fflush(stdout);
         }
-        stats->dumps++;
     }
-
-    fflush(stdout);
     // Re-add the event so it fires again.
     event_add(&dump_config->ev_dump, &dump_config->tv);
 }
@@ -926,6 +948,7 @@ int main(int argc, char **argv) {
         // Load data from existing dump file
         int dump_fd = open(dump_config->dump_file, O_RDONLY);
         if ( dump_fd > 0) {
+            dump_config->loading = 1;
             time_t load_start = time(NULL);
             int load_count = 0;
             printf("loading data from %s: %d\n", dump_config->dump_file, load_start);
@@ -998,6 +1021,7 @@ int main(int argc, char **argv) {
             if (load_end > load_start) {
                 printf("load time: %d seconds, %d checks, %.2f records/sec\n", (load_end - load_start), (load_count/4), ((load_count/4)/(load_end-load_start)));
             }
+            dump_config->loading = 0;
         }
         close(dump_fd);
 
