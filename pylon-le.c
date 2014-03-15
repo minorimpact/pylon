@@ -311,7 +311,6 @@ int main(int argc, char **argv) {
     }
     dump_config->dump_fd = 0;
     dump_config->frequency = 25;
-    dump_config->server_index = server_index;
 
     char *cvalue = NULL;
     bool do_daemonize = false;
@@ -435,6 +434,7 @@ int main(int argc, char **argv) {
     event_base = event_init();
 
     server_index = newServerIndex();
+    dump_config->server_index = server_index;
     listen_fd = socket(AF_INET, SOCK_STREAM, 0);
     if (listen_fd < 0) printf("ERR:listen failed\n");
     if (setsockopt(listen_fd, SOL_SOCKET, SO_REUSEADDR, &reuseaddr_on, sizeof(reuseaddr_on)) == -1) {

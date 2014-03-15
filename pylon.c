@@ -385,22 +385,29 @@ void dump_data(int fd, short ev, void *arg) {
         // Advance the current dump pointer.
         if (dump_config->check != NULL) {
             // We're sitting on a valid check, so move to the next one.
+            printf("dump_data.one\n");
             dump_config->check = dump_config->check->next;
         }
 
         if (dump_config->check == NULL) {
             // Check is null, so we're either before the first one or after
             // the last one.
+            printf("dump_data.two\n");
             if (dump_config->server == NULL) {
                 // Server is null, so this must be our first time through.
                 // Set the server to the first one on the list.
+                printf("dump_data.three\n");
                 dump_config->server = dump_config->server_index->next;
+                printf("dump_data.eight\n");
             } else {
                 // Otherwise, move us to the next server.
+                printf("dump_data.four\n");
                 dump_config->server = dump_config->server->next;
             }
             // Assuming we have a server, start with the first check.
+            printf("dump_data.nine\n");
             if (dump_config->server != NULL) {
+                printf("dump_data.five\n");
                 dump_config->check = dump_config->server->check->next;
             }
         } 
@@ -415,8 +422,14 @@ void dump_data(int fd, short ev, void *arg) {
             printf("renaming %s to %s\n", dump_config->dump_file_tmp, dump_config->dump_file);
             fflush(stdout);
             rename(dump_config->dump_file_tmp, dump_config->dump_file);
+            struct timeval tmp_tv;
+            tmp_tv.tv_sec = 300;
+            tmp_tv.tv_usec = 0;
+            event_add(&dump_config->ev_dump, &tmp_tv);
+            return;
         } else if (dump_config->check != NULL && dump_config->server != NULL) {
             // Sitting on a valid entry.  
+            printf("dump_data.six\n");
             if (dump_config->dump_fd < 1) {
                 // Temp file hasn't been created.  Do so.
                 printf("removing %s\n", dump_config->dump_file_tmp);
@@ -452,7 +465,12 @@ void dump_data(int fd, short ev, void *arg) {
                 exit(-1);
             }
             fflush(stdout);
+        } else {
+            printf("dump_data: nothing to do\n");
+            fflush(stdout);
         }
+        printf("dump_data.seven\n");
+        fflush(stdout);
     }
     // Re-add the event so it fires again.
     event_add(&dump_config->ev_dump, &dump_config->tv);
