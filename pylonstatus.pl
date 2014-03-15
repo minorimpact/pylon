@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 
-require "/home/pgillan/pylon/pylon.pl";
+require "/usr/local/pylon/pylon.pl";
 
 print pylon("status");
 

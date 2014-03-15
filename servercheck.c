@@ -1,8 +1,10 @@
-#include <stdio.h> 
+#include <malloc.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
+#include <sys/types.h>
 #include "servercheck.h"
-
 
 void cleanupServerIndex(server_t *server_index, time_t now, int cleanup) {
     server_t *last_server = server_index;
@@ -237,7 +239,7 @@ char *getCheckList(server_t *server_index, char *server_id) {
     return NULL;
 }
 
-valueList_t *getValueList(server_t *server_index, char *server_id, char *check_id, time_t now, int range, vlopts_t *opts,int force) {
+valueList_t *getValueList(server_t *server_index, char *server_id, char *check_id, time_t now, int range, int force, int bucket_count, int size, int *steps) {
     check_t *check = getServerCheckByName(server_index, server_id, check_id, force);
 
     if (check == NULL) {
@@ -248,8 +250,8 @@ valueList_t *getValueList(server_t *server_index, char *server_id, char *check_i
     if (vl == NULL && force > 0) {
         valueList_t *last_vl = check->vl;
         int i;
-        for (i=0;i<opts->bucket_count;i++) {
-            valueList_t *vl2 = newValueList(opts->bucket_size, opts->buckets[i], now);
+        for (i=0; i < bucket_count; i++) {
+            valueList_t *vl2 = newValueList(size, steps[i], now);
             last_vl->next = vl2;
             last_vl = vl2;
         }
@@ -343,7 +345,7 @@ server_t *newServerIndex() {
     return server_index;
 }
 
-valueList_t *loadData(server_t *server_index, char *server_id, char *check_id, time_t first, int size, int step, double* data, time_t now, vlopts_t *opts) {
+valueList_t *loadData(server_t *server_index, char *server_id, char *check_id, time_t first, int size, int step, double* data, time_t now, int bucket_count, int *steps ) {
     // Get the first valuelist for this server/check.  If none exist, create a default.
     printf("servercheck.loadData: server_id=%s,check_id=%s,size=%d,step=%d\n",server_id, check_id, size, step);
     check_t *check = getServerCheckByName(server_index, server_id, check_id, 1);
@@ -351,8 +353,8 @@ valueList_t *loadData(server_t *server_index, char *server_id, char *check_id, t
     if (vl == NULL) {
         valueList_t *last_vl = check->vl;
         int i;
-        for (i=0;i<opts->bucket_count;i++) {
-            valueList_t *vl2 = newValueList(opts->bucket_size, opts->buckets[i], now);
+        for (i=0; i < bucket_count; i++) {
+            valueList_t *vl2 = newValueList(size, steps[i], now);
             last_vl->next = vl2;
             last_vl = vl2;
         }

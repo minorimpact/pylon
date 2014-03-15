@@ -1,5 +1,3 @@
-#include <time.h> 
-#include <malloc.h>
 
 typedef struct valueList {
     int step;
