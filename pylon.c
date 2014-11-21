@@ -303,7 +303,7 @@ char* parseCommand(char *buf, unsigned long s_addr, time_t now, server_t *server
     } else if (strcmp(command, "placeholder") == 0) {
         printf("parseCommand: placeholder\n");
         char tmp_str[255];
-        sprintf(tmp_str, "uptime=%d connections=%d commands=%d\n", (now - stats->start_time), stats->connections, stats->commands);
+        sprintf(tmp_str, "PLACEHOLDER uptime=%d connections=%d commands=%d\n", (now - stats->start_time), stats->connections, stats->commands);
         printf("%s", tmp_str);
 
         strcpy(output_buf, tmp_str);
