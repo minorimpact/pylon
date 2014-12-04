@@ -36,21 +36,6 @@
 #void event_enable_debug_logging(ev_uint32_t which);
 */
 
-struct bufferq {
-    u_char *buf;
-    int len;
-    int offset;
-    TAILQ_ENTRY(bufferq) entries;
-};
-
-struct ev_client {
-    ev_io ev_read;
-    ev_io ev_write;
-    unsigned long client_s_addr;
-
-    TAILQ_HEAD(, bufferq) writeq;
-};
-
 extern int daemonize(int nochdir, int noclose);
 
 server_t *server_index;
@@ -60,6 +45,7 @@ dump_config_t *dump_config;
 time_t now;
 struct ev_loop *loop;
 char* max_memory;
+u_char *input_buf;
 
 int setnonblock(int fd) {
     int flags;
@@ -85,147 +71,51 @@ void cleanup_data (int fd, short ev, void *arg) {
 }
 
 void on_read(struct ev_loop *loop, ev_io *ev_read, int revents) {
-    struct ev_client *client = (struct ev_client *)ev_read;
-    struct bufferq *bufferq;
-    u_char *buf;
-    int len;
-    stats->connections++;
+    printf("on read\n");
+    int len = read(ev_read->fd, input_buf, BUFLEN);
+    if (len >= 0) {
+        printf("len=%d\n", len);
+        input_buf[len] = 0;
+        char *output_buf = parseCommand(input_buf, now, server_index, opts, stats);
 
-    printf("on_read ev_read address: %p\n", ev_read);
-    printf("on_read ev_write address: %p\n", &client->ev_write);
-    printf("on_read client address: %p\n", client);
-    buf = malloc(BUFLEN * sizeof(u_char));
-    if (buf == NULL) {
-        printf("malloc pylon on_read buf FAILED\n");
-        fflush(stdout);
-        exit(-1);
-    }
-    printf("malloc pylon on_read buf %p\n", buf);
-    if ((char *)buf > (char *)max_memory) {
-        max_memory = buf;
-    }
-    printf("max_memory=%p\n", max_memory);
-
-    len = read(ev_read->fd, buf, BUFLEN);
-    if (len == 0) {
-        //printf("Client disconnected.\n");
-        close(ev_read->fd);
-        ev_io_stop(loop, ev_read);
-        printf("free pylon on_read client-1 %p\n", client);
-        free(client);
-        printf("free pylon on_read buf-1 %p\n", buf);
-        free(buf);
-        return;
-    } else if (len < 0) {
-        printf("Socket failure, disconnecting client: %s\n", strerror(errno));
-        close(ev_read->fd);
-        ev_io_stop(loop, ev_read);
-        printf("free pylon on_read client-2 %p\n", client);
-        free(client);
-        printf("free pylon on_read buf-2 %p\n", buf);
-        free(buf);
-        return;
-    }
-
-    buf[len] = 0;
-    char *output_buf = parseCommand(buf, client->client_s_addr, now, server_index, opts, stats);
-
-    if (output_buf != NULL && strlen(output_buf) > 0) {
-        bufferq = malloc(sizeof(struct bufferq));
-        if (bufferq == NULL) {
-            printf("malloc pylon on_read bufferq FAILED\n");
-            fflush(stdout);
-            exit(-1);
+        if (output_buf != NULL && strlen(output_buf) > 0) {
+            len = write(ev_read->fd, output_buf, strlen(output_buf));
+            if (len == -1) {
+                printf("ERR:write errno:%d\n", errno);
+            }
         }
-        printf("malloc pylon on_read bufferq %p\n", bufferq);
-        bufferq->buf = output_buf;
-        bufferq->len = strlen(output_buf);
-        bufferq->offset = 0;
-        TAILQ_INSERT_TAIL(&client->writeq, bufferq, entries);
 
-        stats->pending++;
-        printf("ev_io_start &client->ev_write\n");
-        ev_io_start(loop, &client->ev_write);
-    } else if (output_buf != NULL) {
-        printf("free pylon on_read output_buf %p\n", output_buf);
-        free(output_buf);
-    }
-
-    printf("free pylon on_read buf %p\n", buf);
-    free(buf);
-}
-
-void on_write(struct ev_loop *loop, ev_io *ev_write, int revents) {
-    struct ev_client *client = (struct ev_client *)(ev_write - 1);
-    struct bufferq *bufferq;
-    int len;
-    printf("on_write ev_write address: %p\n", ev_write);
-printf("on_write ev_write - 1 = %p\n", (ev_write - 1));
-    printf("on_write client address: %p\n", client);
-
-    if (stats->pending > 0) {
-        stats->pending--;
-    }
-
-    bufferq = TAILQ_FIRST(&client->writeq);
-    if (bufferq == NULL) {
-        return;
-    }
-
-    //len = bufferq->len - bufferq->offset;
-    len = write(ev_write->fd, bufferq->buf + bufferq->offset, bufferq->len - bufferq->offset);
-
-    if (len == -1) {
-        if (errno == EINTR || errno == EAGAIN) {
-            ev_io_start(loop, ev_write);
-            return;
-        } else {
-            printf("ERR:write\n");
+        if (output_buf != NULL) {
+            printf("free pylon on_read output_buf %p\n", output_buf);
+            free(output_buf);
         }
-    } else if ((bufferq->offset + len) < bufferq->len) {
-        bufferq->offset += len;
-        ev_io_start(loop, ev_write);
-        return;
     }
 
-    ev_io_stop(loop, ev_write);
-    TAILQ_REMOVE(&client->writeq, bufferq, entries);
-    printf("free pylon on_write bufferq->buf %p\n", bufferq->buf);
-    free(bufferq->buf);
-    printf("free pylon on_write bufferq %p\n", bufferq);
-    free(bufferq);
+    close(ev_read->fd);
+    ev_io_stop(loop, ev_read);
+    free(ev_read);
+    return;
 }
 
 void on_accept(struct ev_loop *loop, ev_io *ev_accept, int revents) {
-    int client_fd;
     struct sockaddr_in client_addr;
     socklen_t client_len = sizeof(client_addr);
-    struct ev_client *client;
+    stats->connections++;
 
-    client_fd = accept(ev_accept->fd, (struct sockaddr *)&client_addr, &client_len);
+    int client_fd = accept(ev_accept->fd, (struct sockaddr *)&client_addr, &client_len);
     if (client_fd == -1) {
         printf("WARN:accept failed\n");
         return;
     }
 
-    if (setnonblock(client_fd) < 0) printf("WARN:failed to set client socket non-blocking\n");
-
-    client = malloc(sizeof(struct ev_client));
-    if (client == NULL) {
-        printf("malloc pylon on_accept client FAILED\n");
+    if (setnonblock(client_fd) < 0) {
+        printf("WARN:failed to set client socket non-blocking\n");
     }
-    printf("malloc pylon on_accept client %p\n", client);
 
-    ev_io_init(&client->ev_read, on_read, client_fd, EV_READ);
-    ev_io_start(loop, &client->ev_read);
-
-    //event_set(&client->ev_write, client_fd, EV_WRITE, on_write, client);
-    ev_io_init(&client->ev_write, on_write, client_fd, EV_WRITE);
-
-    TAILQ_INIT(&client->writeq);
-
-    //printf("Accepted connection from %s (%d)\n", inet_ntoa(client_addr.sin_addr),stats->pending);
-    client->client_s_addr = client_addr.sin_addr.s_addr;
+    printf("accepted connection from %s\n", inet_ntoa(client_addr.sin_addr));
+    struct ev_io *ev_read = (struct ev_io*) malloc (sizeof(struct ev_io));
+    ev_io_init(ev_read, on_read, client_fd, EV_READ);
+    ev_io_start(loop, ev_read);
 }
 
 
@@ -263,13 +153,12 @@ static void save_pid(const pid_t pid, const char *pid_file) {
 }
 
 static void remove_pidfile(const char *pid_file) {
-  if (pid_file == NULL)
-      return;
+    if (pid_file == NULL)
+        return;
 
-  if (unlink(pid_file) != 0) {
-      fprintf(stderr, "Could not remove the pid file %s.\n", pid_file);
-  }
-
+    if (unlink(pid_file) != 0) {
+        fprintf(stderr, "Could not remove the pid file %s.\n", pid_file);
+    }
 }
 
 int main(int argc, char **argv) {
@@ -410,6 +299,14 @@ int main(int argc, char **argv) {
     }
     printf("initializing.\n");
 
+    input_buf = malloc(BUFLEN * sizeof(u_char));
+    if (input_buf == NULL) {
+        printf("malloc pylon main input_buf FAILED\n");
+        fflush(stdout);
+        exit(-1);
+    }
+    printf("malloc pylon main input_buf %p\n", input_buf);
+
     /* initialize stats */
     stats = malloc(sizeof(stats_t));
     if (stats == NULL) {
@@ -421,8 +318,6 @@ int main(int argc, char **argv) {
     stats->gets = 0;
     stats->adds = 0;
     stats->start_time = time(NULL);
-
-    loop = ev_default_loop(0);
 
     server_index = newServerIndex();
     dump_config->server_index = server_index;
@@ -452,6 +347,7 @@ int main(int argc, char **argv) {
         exit(-1);
     }
 
+    loop = ev_default_loop(0);
     ev_io ev_accept;
     ev_io_init(&ev_accept, on_accept, listen_fd, EV_READ);
     ev_io_start(loop, &ev_accept);
@@ -476,7 +372,10 @@ int main(int argc, char **argv) {
         event_add(&dump_config->ev_dump, &tmp_tv);
     }
 */
+
+    printf("starting main loop\n");
     ev_run(loop, 0);
+    printf("exited main loop\n");
 
     if (do_daemonize) remove_pidfile(pid_file);
 

@@ -44,7 +44,7 @@ typedef struct vlopts {
     int cleanup;
 } vlopts_t;
 
-char* parseCommand(char *buf, unsigned long s_addr, time_t now, server_t *server_index, vlopts_t *opts, stats_t *stats);
+char* parseCommand(char *buf, time_t now, server_t *server_index, vlopts_t *opts, stats_t *stats);
 void dump_data(int fd, short ev, void *arg);
 void load_data(dump_config_t *dump_config, time_t now, vlopts_t *opts);
 

@@ -6,7 +6,7 @@
 #include <event.h>
 #include "pylon.h"
 
-char* parseCommand(char *buf, unsigned long s_addr, time_t now, server_t *server_index, vlopts_t *opts, stats_t *stats) {
+char* parseCommand(char *buf, time_t now, server_t *server_index, vlopts_t *opts, stats_t *stats) {
     int i;
     char *tmp = NULL;
     u_char *output_buf;
@@ -26,39 +26,6 @@ char* parseCommand(char *buf, unsigned long s_addr, time_t now, server_t *server
     printf("malloc pylon parseCommand output_buf %p\n", output_buf);
     output_buf[0] = 0;
 
-    /*
-    if (command_overflow_buffers->next != NULL) {
-        overflow_buffer_t *ob;
-        ob = command_overflow_buffers->next;
-        while (ob != NULL) {
-            if (ob->s_addr == s_addr) {
-                tmp = malloc((len + strlen(ob->command_overflow_buffer) + 1) * sizeof(char));
-                if (tmp == NULL) {
-                    printf("malloc pylon parseCommand tmp-1 FAILED\n");
-                    fflush(stdout);
-                    exit(-1);
-                }
-                printf("malloc pylon parseCommand tmp-1 %p\n", tmp);
-                strcpy(tmp, ob->command_overflow_buffer);
-                strcat(tmp, buf);
-                if (ob->next != NULL) {
-                    ob->next->prev = ob->prev;
-                }
-                if (ob->prev != NULL) {
-                    ob->prev->next = ob->next;
-                }
-                printf("free pylon parseCommand ob->command_overflow_buffer %p\n", ob->command_overflow_buffer);
-                free(ob->command_overflow_buffer);
-                printf("free pylon parseCommand ob %p\n", ob);
-                free(ob);
-
-                break;
-            }
-            ob = ob->next;
-        }
-    }
-    */
-
     if (tmp == NULL) {
         tmp = malloc((len+1) * sizeof(char));
         if (tmp == NULL) {
@@ -69,37 +36,6 @@ char* parseCommand(char *buf, unsigned long s_addr, time_t now, server_t *server
         printf("malloc pylon parseCommand tmp-2 %p\n", tmp);
         strcpy(tmp, buf);
     }
-
-    /*
-    if (strcmp(tmp + (strlen(tmp) - 4), "EOF\n") != 0) {
-        overflow_buffer_t *ob;
-        ob = malloc(sizeof(overflow_buffer_t));
-        if (ob == NULL) {
-            printf("malloc pylon parseCommand ob FAILED\n");
-            fflush(stdout);
-            exit(-1);
-        }
-        printf("malloc pylon parseCommand ob %p\n", ob);
-        ob->s_addr = s_addr;
-        ob->command_overflow_buffer = malloc((strlen(tmp) + 1) * sizeof(char));
-        if (ob->command_overflow_buffer == NULL) {
-            printf("malloc pylon parseCommand ob->command_overflow_buffer FAILED\n");
-            fflush(stdout);
-            exit(-1);
-        }
-        printf("malloc pylon parseCommand ob->command_overflow_buffer %p\n", ob->command_overflow_buffer);
-        strcpy(ob->command_overflow_buffer, tmp);
-        ob->next = command_overflow_buffers->next;
-        ob->prev = command_overflow_buffers;
-        if (ob->next != NULL) {
-            ob->next->prev = ob;
-        }
-        command_overflow_buffers->next = ob;
-        printf("free pylon parseCommand tmp %p\n", tmp);
-        free(tmp);
-        return output_buf;
-    }
-    */
 
     command = strtok(tmp, "|\n\r");
     if (strcmp(command, "add") == 0) {
