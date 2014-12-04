@@ -371,6 +371,7 @@ char* parseCommand(char *buf, unsigned long s_addr, time_t now, server_t *server
     return output_buf;
 }
 
+/*
 void dump_data(int fd, short ev, void *arg) {
     dump_config_t *dump_config = arg;
 
@@ -475,6 +476,7 @@ void dump_data(int fd, short ev, void *arg) {
     // Re-add the event so it fires again.
     event_add(&dump_config->ev_dump, &dump_config->tv);
 }
+*/
 
 void load_data(dump_config_t *dump_config, time_t now, vlopts_t *opts) {
     int i;

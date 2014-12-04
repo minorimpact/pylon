@@ -25,7 +25,7 @@ typedef struct dump_config {
     char *dump_file;
     char *dump_file_tmp;
     char *checkdump;
-    struct event ev_dump;
+    /* ev_io *ev_dump;  */
     struct timeval tv;
     int dump_fd;
     int frequency;
