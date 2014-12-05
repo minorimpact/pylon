@@ -96,6 +96,7 @@ void on_read(struct ev_loop *loop, ev_io *ev_read, int revents) {
 
     close(ev_read->fd);
     ev_io_stop(loop, ev_read);
+    printf("free pylon on_read ev_read %p\n", ev_read);
     free(ev_read);
     return;
 }
@@ -117,6 +118,7 @@ void on_accept(struct ev_loop *loop, ev_io *ev_accept, int revents) {
 
     printf("accepted connection from %s\n", inet_ntoa(client_addr.sin_addr));
     struct ev_io *ev_read = (struct ev_io*) malloc (sizeof(struct ev_io));
+    printf("malloc pylon on_accept ev_read %p\n", ev_read);
     ev_io_init(ev_read, on_read, client_fd, EV_READ);
     ev_io_start(loop, ev_read);
 }
