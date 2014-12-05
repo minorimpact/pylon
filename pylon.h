@@ -5,7 +5,7 @@
 #define MAX_BUCKETS 6
 #define BUCKET_SIZE 575
 #define CLEANUP_TIMEOUT 300.
-#define VERSION "0.0.0-20"
+#define VERSION "0.0.0-21"
 
 /* Length of each buffer in the buffer queue.  Also becomes the amount
  * of data we try to read per call to read(2). */

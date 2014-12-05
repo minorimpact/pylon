@@ -62,7 +62,7 @@ int setnonblock(int fd) {
     return 0;
 }
 
-void cleanup_timer(struct ev_loop *loop, ev_timer *ev_cleanup, int revents) {
+void cleanup(struct ev_loop *loop, ev_timer *ev_cleanup, int revents) {
     printf("cleanup data\n");
     cleanupServerIndex(server_index, now, opts->cleanup);
 }
@@ -171,7 +171,6 @@ int main(int argc, char **argv) {
     int reuseaddr_on = 1;
     int c;
     int i;
-    int cleanup;
     int step;
 
     srand(time(NULL));
@@ -211,8 +210,7 @@ int main(int argc, char **argv) {
     while ((c = getopt(argc, argv, "hdP:s:c:L:F:vD:")) != -1) {
         switch (c) {
             case 'c':
-                cleanup = atoi(optarg);
-                opts->cleanup = cleanup;
+                opts->cleanup = atoi(optarg);
                 break;
             case 'd':
                 do_daemonize = true;
@@ -350,7 +348,7 @@ int main(int argc, char **argv) {
 
     // Add cleanup timer
     ev_timer ev_cleanup;
-    ev_timer_init(&ev_cleanup, cleanup_timer, CLEANUP_TIMEOUT, CLEANUP_TIMEOUT );
+    ev_timer_init(&ev_cleanup, cleanup, CLEANUP_TIMEOUT, CLEANUP_TIMEOUT );
     ev_timer_start(loop, &ev_cleanup);
 
     // Add dumper, if enabled.
