@@ -34,6 +34,7 @@ typedef struct dump_config {
     check_t *check;
     server_t *server_index;
     time_t now;
+    time_t completed;
 } dump_config_t;
 
 typedef struct vlopts {
@@ -45,6 +46,6 @@ typedef struct vlopts {
 } vlopts_t;
 
 char* parseCommand(char *buf, time_t now, server_t *server_index, vlopts_t *opts, stats_t *stats);
-void dump_data(int fd, short ev, void *arg);
+void dump_data(dump_config_t *dump_config);
 void load_data(dump_config_t *dump_config, time_t now, vlopts_t *opts);
 

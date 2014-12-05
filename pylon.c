@@ -307,12 +307,12 @@ char* parseCommand(char *buf, time_t now, server_t *server_index, vlopts_t *opts
     return output_buf;
 }
 
-/*
-void dump_data(int fd, short ev, void *arg) {
-    dump_config_t *dump_config = arg;
-
-    printf("dump_data()\n");
+void dump_data(dump_config_t *dump_config) {
+    printf("pylon dump_data\n");
     fflush(stdout);
+
+    if (dump_config->completed > (time(NULL) - 300)) 
+        return;
 
     if (dump_config->loading == 1) {
         // Haven't implemented this yet, but I eventually want to move the data loading
@@ -359,10 +359,7 @@ void dump_data(int fd, short ev, void *arg) {
             printf("renaming %s to %s\n", dump_config->dump_file_tmp, dump_config->dump_file);
             fflush(stdout);
             rename(dump_config->dump_file_tmp, dump_config->dump_file);
-            struct timeval tmp_tv;
-            tmp_tv.tv_sec = 300;
-            tmp_tv.tv_usec = 0;
-            event_add(&dump_config->ev_dump, &tmp_tv);
+            dump_config->completed = time(NULL);
             return;
         } else if (dump_config->check != NULL && dump_config->server != NULL) {
             // Sitting on a valid entry.  
@@ -409,10 +406,7 @@ void dump_data(int fd, short ev, void *arg) {
         printf("dump_data.seven\n");
         fflush(stdout);
     }
-    // Re-add the event so it fires again.
-    event_add(&dump_config->ev_dump, &dump_config->tv);
 }
-*/
 
 void load_data(dump_config_t *dump_config, time_t now, vlopts_t *opts) {
     int i;

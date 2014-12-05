@@ -62,17 +62,22 @@ int setnonblock(int fd) {
     return 0;
 }
 
-void cleanup_data(struct ev_loop *loop, ev_timer *ev_cleanup, int revents) {
+void cleanup(struct ev_loop *loop, ev_timer *ev_cleanup, int revents) {
     printf("cleanup data\n");
     cleanupServerIndex(server_index, now, opts->cleanup);
-    ev_timer_again(loop, ev_cleanup);
+}
+
+void dump(struct ev_loop *loop, ev_idle *ev_idle, int revents) {
+    if (dump_config->completed > (time(NULL) - 300))
+        return;
+    printf("dump\n");
+    dump_data(dump_config);
 }
 
 void on_read(struct ev_loop *loop, ev_io *ev_read, int revents) {
     printf("on read\n");
     int len = read(ev_read->fd, input_buf, BUFLEN);
     if (len >= 0) {
-        printf("len=%d\n", len);
         input_buf[len] = 0;
         char *output_buf = parseCommand(input_buf, now, server_index, opts, stats);
 
@@ -354,23 +359,16 @@ int main(int argc, char **argv) {
 
     // Add cleanup timer
     ev_timer ev_cleanup;
-    ev_timer_init(&ev_cleanup, cleanup_data, CLEANUP_TIMEOUT, 0.);
-    ev_cleanup.repeat = CLEANUP_TIMEOUT;
+    ev_timer_init(&ev_cleanup, cleanup, CLEANUP_TIMEOUT, CLEANUP_TIMEOUT );
     ev_timer_start(loop, &ev_cleanup);
 
-/*
     // Add dumper, if enabled.
     if (dump_config->dump_file != NULL) {
         load_data(dump_config, now, opts);
-        event_set(&dump_config->ev_dump, -1, EV_TIMEOUT|EV_PERSIST, dump_data, dump_config);
-        dump_config->tv.tv_sec = 0;
-        dump_config->tv.tv_usec = (int) 1000000/dump_config->frequency;
-        struct timeval tmp_tv;
-        tmp_tv.tv_sec = 10;
-        tmp_tv.tv_usec = 0;
-        event_add(&dump_config->ev_dump, &tmp_tv);
+        ev_idle ev_idle;
+        ev_idle_init(&ev_idle, dump);
+        ev_idle_start(loop, &ev_idle);
     }
-*/
 
     printf("starting main loop\n");
     ev_run(loop, 0);
