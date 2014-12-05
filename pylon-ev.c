@@ -62,7 +62,7 @@ int setnonblock(int fd) {
     return 0;
 }
 
-void cleanup(struct ev_loop *loop, ev_timer *ev_cleanup, int revents) {
+void cleanup_timer(struct ev_loop *loop, ev_timer *ev_cleanup, int revents) {
     printf("cleanup data\n");
     cleanupServerIndex(server_index, now, opts->cleanup);
 }
@@ -204,12 +204,9 @@ int main(int argc, char **argv) {
     dump_config->dump_fd = 0;
     dump_config->frequency = 25;
 
-    char *cvalue = NULL;
     bool do_daemonize = false;
     char *pid_file = "/var/run/pylon.pid";
     char *log_file = "/var/log/pylon.log";
-    char *dump_file = NULL;
-
 
     while ((c = getopt(argc, argv, "hdP:s:c:L:F:vD:")) != -1) {
         switch (c) {
@@ -359,7 +356,7 @@ int main(int argc, char **argv) {
 
     // Add cleanup timer
     ev_timer ev_cleanup;
-    ev_timer_init(&ev_cleanup, cleanup, CLEANUP_TIMEOUT, CLEANUP_TIMEOUT );
+    ev_timer_init(&ev_cleanup, cleanup_timer, CLEANUP_TIMEOUT, CLEANUP_TIMEOUT );
     ev_timer_start(loop, &ev_cleanup);
 
     // Add dumper, if enabled.
