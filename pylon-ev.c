@@ -128,7 +128,6 @@ void usage(void) {
     printf("usage: pylon <options>\n");
     printf("version: %s-le\n", VERSION);
     printf( "-d            run as a daemon\n"
-           "-D <checks/s> dump frequency; will write X checks per second.\n"
            "-F <file>     dump data to <file>\n"
            "-h            print this message and exit\n"
            "-L <file>     log to <file>\n"
@@ -204,7 +203,6 @@ int main(int argc, char **argv) {
         exit(-1);
     }
     dump_config->dump_fd = 0;
-    dump_config->frequency = 25;
 
     bool do_daemonize = false;
     char *pid_file = "/var/run/pylon.pid";
@@ -218,12 +216,6 @@ int main(int argc, char **argv) {
                 break;
             case 'd':
                 do_daemonize = true;
-                break;
-            case 'D':
-                dump_config->frequency = atoi(optarg);
-                if (dump_config->frequency < 1) {
-                    dump_config->frequency = 1;
-                }
                 break;
             case 'F':
                 dump_config->dump_file = optarg;

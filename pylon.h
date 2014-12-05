@@ -28,7 +28,6 @@ typedef struct dump_config {
     /* ev_io *ev_dump;  */
     struct timeval tv;
     int dump_fd;
-    int frequency;
     int loading;
     server_t *server;
     check_t *check;
