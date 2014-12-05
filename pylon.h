@@ -4,7 +4,7 @@
 #define SERVER_PORT 5555
 #define MAX_BUCKETS 6
 #define BUCKET_SIZE 575
-#define CLEANUP_TIMEOUT 3600
+#define CLEANUP_TIMEOUT 300
 #define VERSION "0.0.0-20"
 
 /* Length of each buffer in the buffer queue.  Also becomes the amount

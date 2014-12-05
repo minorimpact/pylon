@@ -3,7 +3,7 @@
 use Socket;
 use Time::HiRes qw(gettimeofday tv_interval);
 use Data::Dumper;
-require "../pylon.pl";
+require "pylon.pl";
 
 my $MAX_SERVER_COUNT = 12500;
 

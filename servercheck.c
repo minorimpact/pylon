@@ -11,7 +11,7 @@ void cleanupServerIndex(server_t *server_index, time_t now, int cleanup) {
     server_t *server = server_index->next;
     time_t cutoff = now - cleanup;
 
-    printf("serverchec.cleanupServerIndex: now=%d, cleanup=%d, cutoff=%d\n", now, cleanup, cutoff);
+    printf("servercheck.cleanupServerIndex: now=%d, cleanup=%d, cutoff=%d\n", now, cleanup, cutoff);
     while(server != NULL) {
         check_t *last_check = server->check;
         check_t *check = server->check->next;

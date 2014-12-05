@@ -62,12 +62,10 @@ int setnonblock(int fd) {
     return 0;
 }
 
-void cleanup_data (int fd, short ev, void *arg) { 
+void cleanup_data(struct ev_loop *loop, ev_timer *ev_cleanup, int revents) {
+    printf("cleanup data\n");
     cleanupServerIndex(server_index, now, opts->cleanup);
-    struct timeval tv;
-    tv.tv_sec = CLEANUP_TIMEOUT;
-    tv.tv_usec = 0;
-    event_add((struct event *)arg, &tv);
+    ev_timer_again(loop, ev_cleanup);
 }
 
 void on_read(struct ev_loop *loop, ev_io *ev_read, int revents) {
@@ -348,16 +346,17 @@ int main(int argc, char **argv) {
     }
 
     loop = ev_default_loop(0);
+
+    // Add main socket watcher
     ev_io ev_accept;
     ev_io_init(&ev_accept, on_accept, listen_fd, EV_READ);
     ev_io_start(loop, &ev_accept);
 
-/*
-    // Add cleanup event
+    // Add cleanup timer
     ev_timer ev_cleanup;
     ev_timer_init(&ev_cleanup, cleanup_data, CLEANUP_TIMEOUT, 0.);
+    ev_cleanup.repeat = CLEANUP_TIMEOUT;
     ev_timer_start(loop, &ev_cleanup);
-*/
 
 /*
     // Add dumper, if enabled.
