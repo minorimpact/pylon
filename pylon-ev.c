@@ -76,7 +76,16 @@ void dump(struct ev_loop *loop, ev_idle *ev_idle, int revents) {
 
 void on_read(struct ev_loop *loop, ev_io *ev_read, int revents) {
     printf("on read\n");
-    int len = read(ev_read->fd, input_buf, BUFLEN);
+
+    //int len = read(ev_read->fd, input_buf, BUFLEN);
+    int len = 0;
+    int read_size;
+    while ((read_size = read(ev_read->fd, input_buf + len, 1024)) > 0) {
+        len = len + read_size;
+        input_buf[len] = 0;
+        printf("read:%d %s\n", read_size, input_buf);
+    }
+
     if (len >= 0) {
         input_buf[len] = 0;
         char *output_buf = parseCommand(input_buf, now, server_index, opts, stats);
@@ -246,7 +255,7 @@ int main(int argc, char **argv) {
                 opts->bucket_count++;
                 break;
             case 'v':
-                printf("%s-le\n",VERSION);
+                printf("%s-ev\n",VERSION);
                 exit(0);
                 break;
             default:
