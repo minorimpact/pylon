@@ -1,31 +1,31 @@
 #!/usr/bin/perl
 
+my $PYLON_HOME = $ENV{PYLON_HOME};
+die "\$PYLON_HOME is not set\n" unless ($PYLON_HOME);
+die "PYLON_HOME='$PYLON_HOME': invalid directory\n" unless (-d $PYLON_HOME);
+
 use Socket;
 use Time::HiRes qw(gettimeofday tv_interval);
 use Data::Dumper;
-require "pylon.pl";
-
-my $MAX_SERVER_COUNT = 12500;
+require "$PYLON_HOME/lib/pylon.pl";
 
 $| = 1;
 
 main();
 
 sub main {
-    start();
-
-    print "loading garbage data\n";
-    my $result = pylon("load|check1|server1|" . (time() - 5) . "|2|5|1|2");
+    my $get;
+    my $result;
 
     print "resetting server\n";
     $result = pylon("reset");
-    if ($result =~/OK/) { print "OK\n"; } 
-    else { print "FAIL:$result\n"; stop(); }
+    print $result;
+    unless ($result =~/OK/) { print "FAIL\n"; stop(); } 
 
     print "checking status\n";
     $result = pylon("status");
-    if ($result =~/servers=0/) { print "OK\n"; } 
-    else { print "FAIL:$result\n"; stop(); }
+    print $result;
+    unless ($result =~/servers=0/) { print "FAIL\n"; stop(); } 
 
     my $size = 4; # total number of points
     my $step = 5; # seconds between each data point
@@ -47,23 +47,26 @@ sub main {
     print "now=$now\n";
     print "loading test data:$load_string\n";
     $result = pylon($load_string);
-    if ($result =~/OK/) { print "OK\n"; } 
-    else { print "FAIL:$result\n"; stop(); }
+    print $result;
+    unless ($result =~/OK/) { print "FAIL\n"; stop(); }
 
     print "checking status\n";
     $result = pylon("status");
+    print $result;
     if ($result =~/servers=1/) { print "OK\n"; } 
-    else { print "FAIL:$result\n"; stop(); }
+    else { print "FAIL\n"; stop(); }
 
     print "validating check list.\n";
     $result = pylon("checks|server1");
+    print $result;
     if ($result eq "check1\n") { print "OK\n"; } 
-    else { print "FAIL:$result\n"; stop(); }
+    else { print "FAIL\n"; stop(); }
 
     print "dumping and validating test data\n";
     $result = pylon("dump|check1|server1");
-    if ($result =~/$size\|$step\|$test[0]\.0+/) { print "OK:$result"; } 
-    else { print "FAIL:$result\n"; stop(); }
+    print $result;
+    if ($result =~/$size\|$step\|$test[0]\.0+/) { print "OK\n"; } 
+    else { print "FAIL\n"; stop(); }
 
     print "waiting for time window";
     while ((time() % $step) || time() <= $start_time) {
@@ -71,17 +74,19 @@ sub main {
         sleep(1);
     }
     print "\n";
+    $start_time += $step;
 
     my $add_value = 55;
     print "adding a single value: $add_value\n";
     $result = pylon("add|check1|server1|$add_value");
     if ($result =~/OK/) { print "OK\n"; } 
-    else { print "FAIL:$result\n"; stop(); }
+    else { print "FAIL\n"; stop(); }
 
     print "dumping and validating test data\n";
     $result = pylon("dump|check1|server1");
-    if ($result =~/$size\|$step\|.*\|40\.0+\|55\.0+/) { print "OK:$result"; } 
-    else { print "FAIL:$result"; stop(); }
+    print $result;
+    if ($result =~/$size\|$step\|.*\|40\.0+\|55\.0+/) { print "OK\n"; } 
+    else { print "FAIL\n"; stop(); }
 
     print "waiting for time window";
     foreach (1..($step - 1)) {
@@ -89,50 +94,55 @@ sub main {
         sleep(1);
     }
     print "\n";
+    $start_time += $step;
 
     my $add_value = 65;
     print "adding a single value: $add_value\n";
     $result = pylon("add|check1|server1|$add_value");
-    if ($result =~/OK/) { print "OK\n"; } 
-    else { print "FAIL:$result\n"; stop(); }
+    print $result;
+    unless ($result =~/OK/) { print "FAIL\n"; stop(); }
 
     print "dumping and validating test data\n";
     $result = pylon("dump|check1|server1");
-    if ($result =~/$size\|$step\|.*\|40\.0+\|55\.0+\|65\.0+/) { print "OK:$result"; } 
-    else { print "FAIL:$result"; stop(); }
-    stop();
+    print $result;
+    if ($result =~/$size\|$step\|.*\|40\.0+\|55\.0+\|65\.0+/) { print "OK\n"; } 
+    else { print "FAIL\n"; stop(); }
 
     my $load_string = "load|$result";
     $load_string =~s/server1/server2/;
-    print "loading test data for second server:$load_string";
+    print "loading test data for second server\n";
     $result = pylon($load_string);
-    if ($result =~/OK/) { print "OK\n"; } 
-    else { print "FAIL:$result\n"; stop(); }
+    print $result;
+    unless ($result =~/OK/) { print "FAIL\n"; } 
+
+    print "dumping and validating test data\n";
+    $result = pylon("dump|check1|server2");
+    print $result;
+    if ($result =~/$size\|$step\|.*\|40\.0+\|55\.0+\|65\.0+/) { print "OK\n"; } 
+    else { print "FAIL\n"; stop(); }
 
     print "checking status\n";
     $result = pylon("status");
+    print $result;
     if ($result =~/servers=2/) { print "OK\n"; } 
-    else { print "FAIL:$result\n"; stop(); }
+    else { print "FAIL\n"; stop(); }
 
     print "getting data for multiple servers\n";
-    $result = pylon("get|check1|" . (time() - 300) . "|server1|server2");
-    if ($result =~/\|4\|5\|60\.0+\|80\.0+\|110\.0+\|135\.0+/) { print "OK:$result"; }
-    else { print "FAIL:$result\n"; stop(); }
+    $result = pylon("get|check1|" . ($start_time - $step) . "|server1|server2");
+    print $result;
+    if ($result =~/\|$size\|$step\|60\.0+\|80\.0+\|110\.0+\|130\.0+/) { print "OK\n"; }
+    else { print "FAIL\n"; stop(); }
 
     print "getting average data for multiple servers\n";
-    $result = pylon("avg|check1|" . (time() - 300) . "|server1|server2");
-    if ($result =~/\|4\|5\|30\.0+\|40\.0+\|55\.0+\|67\.5+/) { print "OK:$result"; }
-    else { print "FAIL:$result\n"; stop(); }
+    $result = pylon("avg|check1|" . ($start_time - $step) . "|server1|server2");
+    print $result;
+    if ($result =~/$size\|$step\|.*\|40\.0+\|55\.0+\|65\.0+/) { print "OK\n"; } 
+    else { print "FAIL\n"; stop(); }
 
     stop();
 }
 
-sub start {
-    #print `~pgillan/pylon/init start`;
-}
-
 sub stop {
-    #print `~pgillan/pylon/init stop`;
     exit;
 }
 

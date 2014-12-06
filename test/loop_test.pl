@@ -1,9 +1,14 @@
 #!/usr/bin/perl
 
+my $PYLON_HOME = $ENV{PYLON_HOME};
+die "\$PYLON_HOME is not set\n" unless ($PYLON_HOME);
+die "PYLON_HOME='$PYLON_HOME': invalid directory\n" unless (-d $PYLON_HOME);
+
+
 use Socket;
 use Time::HiRes qw(gettimeofday tv_interval);
 use Data::Dumper;
-require "/home/pgillan/pylon/pylon.pl";
+require "$PYLON_HOME/lib/pylon.pl";
 
 my $MAX_SERVER_COUNT = 12500;
 
