@@ -1,20 +1,20 @@
 #!/usr/bin/perl
 
-srand(1);
-my $PYLON_HOME = $ENV{PYLON_HOME};
-die "\$PYLON_HOME is not set\n" unless ($PYLON_HOME);
-die "PYLON_HOME='$PYLON_HOME': invalid directory\n" unless (-d $PYLON_HOME);
-
 use Socket;
 use Time::HiRes qw(gettimeofday tv_interval usleep);
 use Data::Dumper;
-require "$PYLON_HOME/lib/pylon.pl";
+use Cwd 'abs_path';
 
+my $abs_path = abs_path($0);
+$abs_path =~/^(.*)\/test\/[^\/]+$/;
+my $PYLON_HOME = $1;
 my $MAX_SERVERS = 1000;
 my $MAX_CHECKS = 10;
 my $PID = $$;
-my $verbose = 0;
+my $verbose = 1;
 
+require "$PYLON_HOME/lib/pylon.pl";
+srand(1);
 main();
 
 sub main {
@@ -57,6 +57,7 @@ sub main {
         }
     }
 }
+
 sub waitForIt {
     my $step = shift || return;
     my $last = time();

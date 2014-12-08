@@ -84,6 +84,9 @@ void on_read(struct ev_loop *loop, ev_io *ev_read, int revents) {
         len = len + read_size;
         input_buf[len] = 0;
         printf("read:%d %s\n", read_size, input_buf);
+        if (len + 1024 > BUFLEN) {
+            break;
+        }
     }
 
     if (len >= 0) {
@@ -300,7 +303,7 @@ int main(int argc, char **argv) {
     }
     printf("initializing.\n");
 
-    input_buf = malloc(BUFLEN * sizeof(u_char));
+    input_buf = malloc((BUFLEN * sizeof(u_char)) + 1024);
     if (input_buf == NULL) {
         printf("malloc pylon main input_buf FAILED\n");
         fflush(stdout);

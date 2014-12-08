@@ -1,12 +1,14 @@
 #!/usr/bin/perl
 
-my $PYLON_HOME = $ENV{PYLON_HOME};
-die "\$PYLON_HOME is not set\n" unless ($PYLON_HOME);
-die "PYLON_HOME='$PYLON_HOME': invalid directory\n" unless (-d $PYLON_HOME);
-
 use Socket;
 use Time::HiRes qw(gettimeofday tv_interval);
 use Data::Dumper;
+use Cwd 'abs_path';
+
+my $abs_path = abs_path($0);
+$abs_path =~/^(.*)\/test\/[^\/]+$/;
+my $PYLON_HOME = $1;
+
 require "$PYLON_HOME/lib/pylon.pl";
 
 $| = 1;

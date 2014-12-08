@@ -10,7 +10,6 @@
 RETVAL=0
 PYLON_HOME=/usr/local/pylon
 TMPDIR=/tmp
-export PYLON_HOME
 
 start() {
 	echo -n $"Starting up pylon server: "
