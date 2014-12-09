@@ -21,6 +21,7 @@
 #include <errno.h>
 #include <err.h>
 #include <stdbool.h>
+#include <stdarg.h>
 
 /* Easy sensible linked lists. */
 #include <sys/queue.h>
@@ -47,6 +48,13 @@ struct ev_loop *loop;
 char* max_memory;
 u_char *input_buf;
 
+void outlog(char *str, ... ) {
+    va_list args;
+    va_start( args, str );
+    vprintf(str, args);
+    va_end( args );
+}
+
 int setnonblock(int fd) {
     int flags;
 
@@ -63,19 +71,19 @@ int setnonblock(int fd) {
 }
 
 void cleanup(struct ev_loop *loop, ev_timer *ev_cleanup, int revents) {
-    printf("cleanup data\n");
+    outlog("cleanup data\n");
     cleanupServerIndex(server_index, now, opts->cleanup);
 }
 
 void dump(struct ev_loop *loop, ev_idle *ev_idle, int revents) {
     if (dump_config->completed > (time(NULL) - 300))
         return;
-    printf("dump\n");
+    outlog("dump\n");
     dump_data(dump_config);
 }
 
 void on_read(struct ev_loop *loop, ev_io *ev_read, int revents) {
-    printf("on read\n");
+    outlog("on read\n");
 
     //int len = read(ev_read->fd, input_buf, BUFLEN);
     int len = 0;
@@ -83,8 +91,9 @@ void on_read(struct ev_loop *loop, ev_io *ev_read, int revents) {
     while ((read_size = read(ev_read->fd, input_buf + len, 1024)) > 0) {
         len = len + read_size;
         input_buf[len] = 0;
-        printf("read:%d %s\n", read_size, input_buf);
+        outlog("read:%d %s\n", read_size, input_buf);
         if (len + 1024 > BUFLEN) {
+            outlog("too much data\n");
             break;
         }
     }
@@ -96,19 +105,19 @@ void on_read(struct ev_loop *loop, ev_io *ev_read, int revents) {
         if (output_buf != NULL && strlen(output_buf) > 0) {
             len = write(ev_read->fd, output_buf, strlen(output_buf));
             if (len == -1) {
-                printf("ERR:write errno:%d\n", errno);
+                outlog("ERR:write errno:%d\n", errno);
             }
         }
 
         if (output_buf != NULL) {
-            printf("free pylon on_read output_buf %p\n", output_buf);
+            outlog("free pylon on_read output_buf %p\n", output_buf);
             free(output_buf);
         }
     }
 
     close(ev_read->fd);
     ev_io_stop(loop, ev_read);
-    printf("free pylon on_read ev_read %p\n", ev_read);
+    outlog("free pylon on_read ev_read %p\n", ev_read);
     free(ev_read);
     return;
 }
@@ -120,26 +129,25 @@ void on_accept(struct ev_loop *loop, ev_io *ev_accept, int revents) {
 
     int client_fd = accept(ev_accept->fd, (struct sockaddr *)&client_addr, &client_len);
     if (client_fd == -1) {
-        printf("WARN:accept failed\n");
+        outlog("WARN:accept failed\n");
         return;
     }
 
     if (setnonblock(client_fd) < 0) {
-        printf("WARN:failed to set client socket non-blocking\n");
+        outlog("WARN:failed to set client socket non-blocking\n");
     }
 
-    printf("accepted connection from %s\n", inet_ntoa(client_addr.sin_addr));
+    outlog("accepted connection from %s\n", inet_ntoa(client_addr.sin_addr));
     struct ev_io *ev_read = (struct ev_io*) malloc (sizeof(struct ev_io));
-    printf("malloc pylon on_accept ev_read %p\n", ev_read);
+    outlog("malloc pylon on_accept ev_read %p\n", ev_read);
     ev_io_init(ev_read, on_read, client_fd, EV_READ);
     ev_io_start(loop, ev_read);
 }
 
-
 void usage(void) {
-    printf("usage: pylon <options>\n");
-    printf("version: %s-le\n", VERSION);
-    printf( "-d            run as a daemon\n"
+    outlog("usage: pylon <options>\n");
+    outlog("version: %s-le\n", VERSION);
+    outlog( "-d            run as a daemon\n"
            "-F <file>     dump data to <file>\n"
            "-h            print this message and exit\n"
            "-L <file>     log to <file>\n"
@@ -188,7 +196,7 @@ int main(int argc, char **argv) {
     srand(time(NULL));
     opts = malloc(sizeof(vlopts_t));
     if (opts == NULL) {
-        printf("malloc pylon main opts FAILED\n");
+        outlog("malloc pylon main opts FAILED\n");
         fflush(stdout);
         exit(-1);
     }
@@ -196,7 +204,7 @@ int main(int argc, char **argv) {
     opts->bucket_size = BUCKET_SIZE;
     opts->buckets = malloc(sizeof(int) * opts->max_buckets);
     if (opts->buckets == NULL) {
-        printf("malloc pylon main opts->buckets FAILED\n");
+        outlog("malloc pylon main opts->buckets FAILED\n");
         fflush(stdout);
         exit(-1);
     }
@@ -209,7 +217,7 @@ int main(int argc, char **argv) {
 
     dump_config = malloc(sizeof(dump_config_t));
     if (dump_config == NULL) {
-        printf("malloc pylon main dump_config FAILED\n");
+        outlog("malloc pylon main dump_config FAILED\n");
         fflush(stdout);
         exit(-1);
     }
@@ -258,7 +266,7 @@ int main(int argc, char **argv) {
                 opts->bucket_count++;
                 break;
             case 'v':
-                printf("%s-ev\n",VERSION);
+                outlog("%s-ev\n",VERSION);
                 exit(0);
                 break;
             default:
@@ -274,47 +282,47 @@ int main(int argc, char **argv) {
         int res;
 
         // I have no idea how stuff works. If I don't use stdout first, then nothing gets written to the log file.
-        printf("daemonizing.\n");
+        outlog("daemonizing\n");
         res = daemonize(0, 0);
         if (res == -1) {
-            printf("ERR:failed to daemon() in order to daemonize\n");
+            outlog("ERR:failed to daemon() in order to daemonize\n");
             fflush(stdout);
             exit(-1);
         }
         save_pid(getpid(), pid_file);
 
-        printf("log_file:'%s'\n",log_file);
+        outlog("log_file:'%s'\n",log_file);
         int fd = open(log_file, O_APPEND | O_WRONLY | O_CREAT, 0755);
         if (fd < 0) {
-            printf("ERR:Can't open logfile %s for writing\n", log_file);
+            outlog("ERR:Can't open logfile %s for writing\n", log_file);
             fflush(stdout);
             exit(-1);
         }        
         if(dup2(fd, STDOUT_FILENO) < 0) {
-            printf("ERR:failed to dup2 stdout\n");
+            outlog("ERR:failed to dup2 stdout\n");
             fflush(stdout);
             exit(-1);
         }
         if(dup2(fd, STDERR_FILENO) < 0) {
-            printf("ERR:failed to dup2 stderr\n");
+            outlog("ERR:failed to dup2 stderr\n");
             fflush(stdout);
             exit(-1);
         }
     }
-    printf("initializing.\n");
+    outlog("initializing.\n");
 
     input_buf = malloc((BUFLEN * sizeof(u_char)) + 1024);
     if (input_buf == NULL) {
-        printf("malloc pylon main input_buf FAILED\n");
+        outlog("malloc pylon main input_buf FAILED\n");
         fflush(stdout);
         exit(-1);
     }
-    printf("malloc pylon main input_buf %p\n", input_buf);
+    outlog("malloc pylon main input_buf %p\n", input_buf);
 
     /* initialize stats */
     stats = malloc(sizeof(stats_t));
     if (stats == NULL) {
-        printf("malloc pylon main stats FAILED\n");
+        outlog("malloc pylon main stats FAILED\n");
         fflush(stdout);
         exit(-1);
     }
@@ -326,9 +334,9 @@ int main(int argc, char **argv) {
     server_index = newServerIndex();
     dump_config->server_index = server_index;
     listen_fd = socket(AF_INET, SOCK_STREAM, 0);
-    if (listen_fd < 0) printf("ERR:listen failed\n");
+    if (listen_fd < 0) outlog("ERR:listen failed\n");
     if (setsockopt(listen_fd, SOL_SOCKET, SO_REUSEADDR, &reuseaddr_on, sizeof(reuseaddr_on)) == -1) {
-        printf("ERR:setsockopt failed\n");
+        outlog("ERR:setsockopt failed\n");
         exit(-1);
     }
     
@@ -337,17 +345,17 @@ int main(int argc, char **argv) {
     listen_addr.sin_addr.s_addr = INADDR_ANY;
     listen_addr.sin_port = htons(SERVER_PORT);
     if (bind(listen_fd, (struct sockaddr *)&listen_addr, sizeof(listen_addr)) < 0) {
-        printf("ERR:bind failed\n");
+        outlog("ERR:bind failed\n");
         exit(-1);
     }
 
     if (listen(listen_fd, 5) < 0) {
-        printf("ERR:listen failed\n");
+        outlog("ERR:listen failed\n");
         exit(-1);
     }
 
     if (setnonblock(listen_fd) < 0) {
-        printf("ERR:failed to set server socket to non-blocking\n");
+        outlog("ERR:failed to set server socket to non-blocking\n");
         exit(-1);
     }
 
@@ -371,9 +379,9 @@ int main(int argc, char **argv) {
         ev_idle_start(loop, &ev_idle);
     }
 
-    printf("starting main loop\n");
+    outlog("starting main loop\n");
     ev_run(loop, 0);
-    printf("exited main loop\n");
+    outlog("exited main loop\n");
 
     if (do_daemonize) remove_pidfile(pid_file);
 

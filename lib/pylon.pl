@@ -1,5 +1,5 @@
 use Socket;
-
+use Time::HiRes qw(gettimeofday tv_interval usleep);
 
 sub pylon {
     my $command = shift;
@@ -34,5 +34,23 @@ sub pylon {
     return $response;
 }
 
+sub waitForIt {
+    my $args = shift || die;
+    die unless (ref($args) eq 'HASH');
+
+    my $step = $args->{step} || return;
+    my $verbose = $args->{verbose} || 0;
+
+    my $last = time();
+    my $first = $last;
+    print "waiting for the right time\n" if ($verbose);
+    while ((time() % $step) > 0 || time() == $first) {
+        if (time() != $last) {
+            print localtime(time())  . "\n" if ($verbose);
+            $last = time();
+        }
+        usleep(10000);
+    }
+}
 
 1;
