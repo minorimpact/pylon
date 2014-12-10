@@ -311,7 +311,7 @@ void dump_data(dump_config_t *dump_config) {
     printf("pylon dump_data\n");
     fflush(stdout);
 
-    if (dump_config->completed > (time(NULL) - 300)) 
+    if (dump_config->completed > (time(NULL) - dump_config->dump_interval)) 
         return;
 
     if (dump_config->loading == 1) {
@@ -456,7 +456,6 @@ void load_data(dump_config_t *dump_config, time_t now, vlopts_t *opts) {
                 time_t first = atoi(first_s);
                 int size = atoi(size_s);
                 int step = atoi(step_s);
-                //printf("parseCommand: load|%s|%s|%d|%d|%d\n", check_id, server_id, first, size, step);
 
                 double *data = malloc(size*sizeof(double));
                 if (data == NULL) {

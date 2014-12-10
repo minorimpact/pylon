@@ -76,7 +76,7 @@ void cleanup(struct ev_loop *loop, ev_timer *ev_cleanup, int revents) {
 }
 
 void dump(struct ev_loop *loop, ev_idle *ev_idle, int revents) {
-    if (dump_config->completed > (time(NULL) - 300))
+    if (dump_config->completed > (time(NULL) - dump_config->dump_interval))
         return;
     outlog("dump\n");
     dump_data(dump_config);
@@ -145,16 +145,17 @@ void on_accept(struct ev_loop *loop, ev_io *ev_accept, int revents) {
 }
 
 void usage(void) {
-    outlog("usage: pylon <options>\n");
-    outlog("version: %s-le\n", VERSION);
-    outlog( "-d            run as a daemon\n"
-           "-F <file>     dump data to <file>\n"
-           "-h            print this message and exit\n"
-           "-L <file>     log to <file>\n"
-           "-P <file>     save PID in <file>, only used with -d option\n"
-           "              default: /var/run/pylon.pid\n"
-           "              default: /var/log/pylon.log\n"
-           "-v            output version information\n"
+    printf("usage: pylon <options>\n");
+    printf("version: %s-le\n", VERSION);
+    printf( "-d            run as a daemon\n"
+            "-D <int>      wait <int> seconds after completing a dump to file before starting a new dump\n"
+            "-F <file>     dump data to <file>\n"
+            "-h            print this message and exit\n"
+            "-L <file>     log to <file>\n"
+            "              default: /var/log/pylon.log\n"
+            "-P <file>     save PID in <file>, only used with -d option\n"
+            "              default: /var/run/pylon.pid\n"
+            "-v            output version information\n"
         );
     return;
 }
@@ -221,6 +222,7 @@ int main(int argc, char **argv) {
         fflush(stdout);
         exit(-1);
     }
+    dump_config->dump_interval = DUMP_INTERVAL;
     dump_config->dump_fd = 0;
 
     bool do_daemonize = false;
@@ -231,6 +233,9 @@ int main(int argc, char **argv) {
         switch (c) {
             case 'c':
                 opts->cleanup = atoi(optarg);
+                break;
+            case 'D':
+                dump_config->dump_interval = atoi(optarg);
                 break;
             case 'd':
                 do_daemonize = true;

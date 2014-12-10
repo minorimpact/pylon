@@ -5,6 +5,7 @@
 #define MAX_BUCKETS 6
 #define BUCKET_SIZE 575
 #define CLEANUP_TIMEOUT 300.
+#define DUMP_INTERVAL 10
 #define VERSION "0.0.0-23"
 
 /* Length of each buffer in the buffer queue.  Also becomes the amount
@@ -25,7 +26,7 @@ typedef struct dump_config {
     char *dump_file;
     char *dump_file_tmp;
     char *checkdump;
-    /* ev_io *ev_dump;  */
+    int dump_interval;
     struct timeval tv;
     int dump_fd;
     int loading;
