@@ -30,7 +30,6 @@ our $verbose = $options->{verbose} || $debug;
 main();
 
 sub main {
-    srand(1);
     my $result;
     my $step = 5; # seconds between each data point
     my $size = 575; # total number of points

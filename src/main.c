@@ -1,6 +1,6 @@
 /*
  * yum install gcc libev libev-devel
- * gcc -lev pylon-ev.c pylon.c servercheck.c valuelist.c daemon.c -o pylon
+ * gcc -lev main.c pylon.c servercheck.c valuelist.c daemon.c -o ../pylon
  */
 
 #include <sys/types.h>
@@ -271,7 +271,7 @@ int main(int argc, char **argv) {
                 opts->bucket_count++;
                 break;
             case 'v':
-                outlog("%s-ev\n",VERSION);
+                outlog("%s\n",VERSION);
                 exit(0);
                 break;
             default:
