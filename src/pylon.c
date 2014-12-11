@@ -6,7 +6,7 @@
 #include <event.h>
 #include "pylon.h"
 
-char* parseCommand(char *buf, time_t now, server_t *server_index, vlopts_t *opts, stats_t *stats) {
+char* parseCommand(char *buf, time_t now, server_t *server_index, vlopts_t *opts, stats_t *stats, dump_config_t *dump_config) {
     int i;
     char *tmp = NULL;
     u_char *output_buf;
@@ -157,7 +157,7 @@ char* parseCommand(char *buf, time_t now, server_t *server_index, vlopts_t *opts
             if (strcmp(server_id,"EOF") != 0 && vl != NULL && server_id != NULL) {
                 // Walk through the list of requested servers and build our data list.
                 while (strcmp(server_id,"EOF") != 0 && server_id != NULL) {
-                    //printf("pylon.parseCommand.%s:looking for more sevrers that have a valuelist for %s\n",command, check_id);
+                    //printf("pylon.parseCommand.%s:looking for more servers that have a valuelist for %s\n",command, check_id);
                     valueList_t *vl2 = getValueList(server_index, server_id, check_id, now, range, 0, opts->bucket_count, opts->bucket_size, opts->buckets);
                     if (vl2 != NULL && vl2->size == vl->size && vl2->step == vl->step) {
                         //printf("pylon.parseCommand.%s:found %s\n",command, server_id);
@@ -206,6 +206,7 @@ char* parseCommand(char *buf, time_t now, server_t *server_index, vlopts_t *opts
         free(tmp_output_buf);
         stats->gets++;
     } else if (strcmp(command, "reset") == 0) {
+        dump_config->abort = 1;
         printf("parseCommand: reset\n");
         server_t *server = server_index->next;
 
@@ -312,6 +313,16 @@ void dump_data(dump_config_t *dump_config) {
 
     if (dump_config->completed > (time(NULL) - dump_config->dump_interval)) 
         return;
+
+    if (dump_config->abort == 1) {
+        printf("aborting dump\n");
+        close(dump_config->dump_fd);
+        dump_config->dump_fd = 0;
+        unlink(dump_config->dump_file_tmp);
+        dump_config->completed = time(NULL);
+        dump_config->abort = 0;
+        return;
+    }
 
     if (dump_config->loading == 1) {
         // Haven't implemented this yet, but I eventually want to move the data loading

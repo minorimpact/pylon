@@ -217,9 +217,9 @@ sub main {
         my $rsize = shift @rdata;
         my $rstep = shift @rdata;
         my $new_pos = $test_pos - int(($start_time - $start_time{$step}) / $step) - 1;
-        #for (my $i=1;$i<=$size;$i++) {
-        #    print "$i,@{$data->{$step}}[$i-1],$rdata[$i-1]\n";
-        #}
+        for (my $i=1;$i<=$size;$i++) {
+            print "$i,@{$data->{$step}}[$i-1],$rdata[$i-1]\n" if ($debug);
+        }
         print "$test_pos/$new_pos,count=" . scalar(@rdata) . ",original_data=" . @{$data->{$step}}[$test_pos-1] . ",new_data=" . $rdata[$new_pos-1] . "\n" if ($verbose);
         print "validating reloaded count ($step)\n";
         if (scalar(@rdata) == $size) {

@@ -100,7 +100,7 @@ void on_read(struct ev_loop *loop, ev_io *ev_read, int revents) {
 
     if (len >= 0) {
         input_buf[len] = 0;
-        char *output_buf = parseCommand(input_buf, now, server_index, opts, stats);
+        char *output_buf = parseCommand(input_buf, now, server_index, opts, stats, dump_config);
 
         if (output_buf != NULL && strlen(output_buf) > 0) {
             len = write(ev_read->fd, output_buf, strlen(output_buf));
@@ -223,6 +223,7 @@ int main(int argc, char **argv) {
         exit(-1);
     }
     dump_config->dump_interval = DUMP_INTERVAL;
+    dump_config->abort = 0;
     dump_config->dump_fd = 0;
 
     bool do_daemonize = false;
