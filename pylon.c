@@ -16,7 +16,7 @@ char* parseCommand(char *buf, time_t now, server_t *server_index, vlopts_t *opts
 
     stats->commands++;
 
-    output_buf = malloc(BUFLEN*sizeof(u_char));
+    output_buf = calloc(BUFLEN, sizeof(u_char));
     if (output_buf == NULL) {
         printf("malloc pylon parseCommand output_buf FAILED\n");
         fflush(stdout);
@@ -24,10 +24,9 @@ char* parseCommand(char *buf, time_t now, server_t *server_index, vlopts_t *opts
     }
 
     printf("malloc pylon parseCommand output_buf %p\n", output_buf);
-    output_buf[0] = 0;
 
     if (tmp == NULL) {
-        tmp = malloc((len+1) * sizeof(char));
+        tmp = calloc((len+1), sizeof(u_char));
         if (tmp == NULL) {
             printf("malloc pylon parseCommand tmp-2 FAILED\n");
             fflush(stdout);
@@ -122,7 +121,7 @@ char* parseCommand(char *buf, time_t now, server_t *server_index, vlopts_t *opts
         char *range_s = strtok(NULL, "|\n\r");
         char *server_id = strtok(NULL, "|\n\r");
         char tmp_str[50];
-        char *tmp_output_buf = calloc(BUFLEN, sizeof(char));
+        char *tmp_output_buf = calloc(BUFLEN, sizeof(u_char));
         if (tmp_output_buf == NULL) {
             printf("malloc pylon parseCommand tmp_output_buf FAILED\n");
             exit(-1);
@@ -410,7 +409,7 @@ void dump_data(dump_config_t *dump_config) {
 
 void load_data(dump_config_t *dump_config, time_t now, vlopts_t *opts) {
     int i;
-    dump_config->dump_file_tmp = malloc(sizeof(char) * (strlen(dump_config->dump_file) + 5));
+    dump_config->dump_file_tmp = malloc(sizeof(u_char) * (strlen(dump_config->dump_file) + 5));
     dump_config->checkdump = malloc(BUFLEN*sizeof(u_char));
     if (dump_config->checkdump == NULL) {
         printf("malloc pylon main dump_config->checkdump FAILED\n");

@@ -46,11 +46,26 @@ sub waitForIt {
     print "waiting for the right time\n" if ($verbose);
     while ((time() % $step) > 0 || time() == $first) {
         if (time() != $last) {
-            print localtime(time())  . "\n" if ($verbose);
+            print localtime(time())  . "\r" if ($verbose);
             $last = time();
         }
         usleep(10000);
     }
+    print "\n";
+}
+
+sub start {
+    print "starting pylon\n";
+    my $command = "$PYLON_HOME/init start";
+    print "$command\n" if ($debug);
+    print `$command`;
+}
+
+sub stop {
+    print "stopping pylon\n";
+    my $command = "$PYLON_HOME/init stop";
+    print "$command\n" if ($debug);
+    print `$command`;
 }
 
 1;

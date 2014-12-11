@@ -9,7 +9,7 @@ $| = 1;
 
 my $abs_path = abs_path($0);
 $abs_path =~/^(.*)\/test\/[^\/]+$/;
-my $PYLON_HOME = $1;
+our $PYLON_HOME = $1;
 
 require "$PYLON_HOME/lib/pylon.pl";
 
@@ -24,43 +24,53 @@ if (! $rc || $options->{help}) {
     print "  --verbose    - turn on verbose mode\n";
     exit;
 }
-my $debug = $options->{debug} || 0;
-my $verbose = $options->{verbose} || $debug;
+our $debug = $options->{debug} || 0;
+our $verbose = $options->{verbose} || $debug;
 
 main();
 
 sub main {
+    srand(1);
     my $result;
+    my $step = 5; # seconds between each data point
+    my $size = 575; # total number of points
+    my $add_value1 = 5755;
+    my $add_value2 = 5765;
+    my $test_pos = int(rand($size - 10)) + 10;
+    my $dump_time = 10;
+    my $dump_file = "/tmp/pylon_dump";
 
     unless ($options->{force}) {
         print "Running this script will remove all data from pylon. Continue? ";
         my $confirm = <STDIN>;
         die unless ($confirm =~/^y/i);
     }
-    print "resetting server\n";
-    $result = pylon("reset");
-    print $result;
-    unless ($result =~/OK/) { die("FAIL\n"); } 
 
+    stop();
+    print "checking status\n";
+    eval {
+        $result = pylon("status");
+    };
+    print "$result\n";
+    if ($result) { die("FAIL\n"); } 
+
+    unlink($dump_file);
+    start();
     print "checking status\n";
     $result = pylon("status");
     print $result;
     unless ($result =~/servers=0/) { die("FAIL\n"); } 
 
-    my $size = 4; # total number of points
-    my $step = 5; # seconds between each data point
-
     waitForIt({step=>$step, verbose=>$verbose});
 
     my $now = time();
-    my $start_time = $now - ($now % $step) - (($size ) * $step); #the time of the first point of data
+    $start_time{$step} = time() - ($size * $step); #the time of the first point of data
     my @test = ();
     foreach my $pos (1..$size) {
         push (@test, $pos*10);
     }
-    my $load_string = "load|check1|server1|$start_time|$size|$step|" . join("|", @test);
-    print "now=$now\n";
-    print "loading test data:$load_string\n";
+    my $load_string = "load|check1|server1|$start_time{$step}|$size|$step|" . join("|", @test);
+    print "loading test data\n";
     $result = pylon($load_string);
     print $result;
     unless ($result =~/OK/) { die("FAIL\n"); }
@@ -73,43 +83,39 @@ sub main {
 
     print "validating check list.\n";
     $result = pylon("checks|server1");
-    print $result;
+    print $result if ($debug);
     if ($result eq "check1\n") { print "OK\n"; } 
     else { die("FAIL\n"); }
 
     print "dumping and validating test data\n";
     $result = pylon("dump|check1|server1");
-    print $result;
-    if ($result =~/$size\|$step\|$test[0]\.0+/) { print "OK\n"; } 
+    print $result if ($debug);
+    if ($result =~/$size\|$step\|$test[0]\.0+\|.*\|$test[$size-1]\.0+/) { print "OK\n"; } 
     else { die("FAIL\n")}
 
-    $start_time += $step;
-
-    my $add_value = 55;
-    print "adding a single value: $add_value\n";
-    $result = pylon("add|check1|server1|$add_value");
+    print "adding a single value: $add_value1\n";
+    $result = pylon("add|check1|server1|$add_value1");
     if ($result =~/OK/) { print "OK\n"; } 
     else { die("FAIL\n")}
 
     print "dumping and validating test data\n";
     $result = pylon("dump|check1|server1");
-    print $result;
-    if ($result =~/$size\|$step\|.*\|40\.0+\|55\.0+/) { print "OK\n"; } 
+    print $result if ($debug);
+    if ($result =~/$size\|$step\|$test[1]\.0+\|.*\|$test[$size-1]\.0+\|$add_value1\.0+/) { print "OK\n"; } 
     else { die("FAIL\n"); }
 
     waitForIt({step=>$step, verbose=>$verbose});
-    $start_time += $step;
+    $start_time{$step} += $step;
 
-    my $add_value = 65;
-    print "adding a single value: $add_value\n";
-    $result = pylon("add|check1|server1|$add_value");
+    print "adding a single value: $add_value2\n";
+    $result = pylon("add|check1|server1|$add_value2");
     print $result;
     unless ($result =~/OK/) { die("FAIL\n"); }
 
     print "dumping and validating test data\n";
     $result = pylon("dump|check1|server1");
-    print $result;
-    if ($result =~/$size\|$step\|.*\|40\.0+\|55\.0+\|65\.0+/) { print "OK\n"; } 
+    print $result if ($debug);
+    if ($result =~/$size\|$step\|$test[2]\.0+\|.*\|$test[$size-1]\.0+\|$add_value1\.0+\|$add_value2\.0+/) { print "OK\n"; } 
     else { die("FAIL\n"); }
 
     my $load_string = "load|$result";
@@ -121,8 +127,8 @@ sub main {
 
     print "dumping and validating test data\n";
     $result = pylon("dump|check1|server2");
-    print $result;
-    if ($result =~/$size\|$step\|.*\|40\.0+\|55\.0+\|65\.0+/) { print "OK\n"; } 
+    print $result if ($debug);
+    if ($result =~/$size\|$step\|.*\|5755\.0+\|5765\.0+/) { print "OK\n"; } 
     else { die("FAIL\n"); }
 
     print "checking status\n";
@@ -132,15 +138,15 @@ sub main {
     else { die("FAIL\n"); }
 
     print "getting data for multiple servers\n";
-    $result = pylon("get|check1|" . ($start_time - $step) . "|server1|server2");
-    print $result;
-    if ($result =~/\|$size\|$step\|60\.0+\|80\.0+\|110\.0+\|130\.0+/) { print "OK\n"; }
+    $result = pylon("get|check1|$start_time{$step}|server1|server2");
+    print $result if ($debug);
+    if ($result =~/\|$size\|$step\|.*\|11500\.0+\|11510\.0+\|11530\.0+/) { print "OK\n"; }
     else { die("FAIL\n"); }
 
     print "getting average data for multiple servers\n";
-    $result = pylon("avg|check1|" . ($start_time - $step) . "|server1|server2");
-    print $result;
-    if ($result =~/$size\|$step\|.*\|40\.0+\|55\.0+\|65\.0+/) { print "OK\n"; } 
+    $result = pylon("avg|check1|$start_time{$step}|server1|server2");
+    print $result if ($debug);
+    if ($result =~/$size\|$step\|.*\|5755\.0+\|5765\.0+/) { print "OK\n"; } 
     else { die("FAIL\n"); }
 
     print "resetting server\n";
@@ -148,40 +154,82 @@ sub main {
     print $result;
     unless ($result =~/OK/) { die("FAIL\n"); } 
 
-    waitForIt({step=>5, verbose=>$verbose});
-    my $size = 575;
+    waitForIt({step=>$step, verbose=>$verbose});
+    $now = time();
     my @steps = (5, 300, 1800, 7200, 86400);
     my %data;
     foreach my $step (@steps) {
         print "loading step $step\n";
         foreach my $pos (1..$size) {
-            my $rand = rand(1000000);
+            my $rand = rand(1000000000) + 1000000000;
             push (@{$data->{$step}}, $rand);
         }
-        my $start_time = time() - ($now % $step) - ($size * $step);
-        my $load_string = "load|check1|server1|$start_time|$size|$step|" . join("|", @{$data->{$step}});
+        $start_time{$step} = time() - ($now % $step) - (($size) * $step);
+        my $load_string = "load|check1|server1|$start_time{$step}|$size|$step|" . join("|", @{$data->{$step}});
         $result = pylon($load_string);
         print $result;
         unless ($result =~/OK/) { die("FAIL\n"); } 
     }
 
     foreach my $step (@steps) {
-        my $start_time = time() - ($now % $step) - ($size * $step) - $step;
-        my $get_string = "get|check1|$start_time|server1";
+        my $get_string = "get|check1|" . ($start_time{$step} - $step) . "|server1";
         $result = pylon($get_string);
+        print "$result" if ($debug);
         my @rdata = split(/\|/,$result);
         my $rtime = shift @rdata;
         my $rsize = shift @rdata;
         my $rstep = shift @rdata;
-        print "count=" . scalar(@rdata) . ",original_data=" . @{$data->{$step}}[50] . ",new_data=" . $rdata[50] . "\n" if ($debug);
+        print "count=" . scalar(@rdata) . ",original_data=" . @{$data->{$step}}[$test_pos-1] . ",new_data=" . $rdata[$test_pos-1] . "\n" if ($verbose);
         print "validating count ($step)\n";
-        if (scalar(@rdata) == 575) {
+        if (scalar(@rdata) == $size) {
             print "OK\n";
         } else {
             die("FAIL\n");
         }
         print "validation data ($step)\n";
-        if ($rdata[50] <  (@{$data->{$step}}[50] + 1) && $rdata[50] >  (@{$data->{$step}}[50]-1)) {
+        if ($rdata[$test_pos-1] <  (@{$data->{$step}}[$test_pos-1] + 1) && $rdata[$test_pos-1] >  (@{$data->{$step}}[$test_pos-1]-1)) {
+            print "OK\n";
+        } else {
+            die("FAIL\n");
+        }
+    }
+
+    print "waiting for disk dump:\n";
+    print "$dump_time\r";
+    for (my $i=$dump_time; $i>0;$i--) {
+        print " " if ($i < 10);
+        print "$i\r";
+        sleep(1);
+    }
+    print "\n";
+
+    stop();
+    start();
+    waitForIt({step=>$step,verbose=>$verbose});
+    $now = time();
+    foreach my $step (@steps) {
+        my $start_time = time() - ($now % $step) - ($size * $step) - $step;
+        my $get_string = "get|check1|$start_time|server1";
+        $result = pylon($get_string);
+        print "$result" if ($debug);
+        chomp($result);
+        my @rdata = split(/\|/,$result);
+        my $rtime = shift @rdata;
+        my $rsize = shift @rdata;
+        my $rstep = shift @rdata;
+        my $new_pos = $test_pos - int(($start_time - $start_time{$step}) / $step) - 1;
+        #for (my $i=1;$i<=$size;$i++) {
+        #    print "$i,@{$data->{$step}}[$i-1],$rdata[$i-1]\n";
+        #}
+        print "$test_pos/$new_pos,count=" . scalar(@rdata) . ",original_data=" . @{$data->{$step}}[$test_pos-1] . ",new_data=" . $rdata[$new_pos-1] . "\n" if ($verbose);
+        print "validating reloaded count ($step)\n";
+        if (scalar(@rdata) == $size) {
+            print "OK\n";
+        } else {
+            die("FAIL\n");
+        }
+        print "validatiing reloaded data ($step)\n";
+        if ($rdata[$new_pos-1] <  (@{$data->{$step}}[$test_pos-1] + 1) && $rdata[$new_pos-1] >  (@{$data->{$step}}[$test_pos-1]-1)) {
             print "OK\n";
         } else {
             die("FAIL\n");
@@ -189,20 +237,3 @@ sub main {
     }
 }
 
-sub start {
-    `service pylon start`;
-}
-sub stop {
-    `service pylon stop`;
-}
-
-sub printstatus {
-    $status = pylon("status");
-    $status =~/servers=(\d+)/;
-    my $servers = $1;
-    $status =~/checks=(\d+)/;
-    my $checks = $1;
-    $status =~/size=(\d+)/;
-    my $size = $1;
-    print "servers=$servers checks=$checks size=${\ FFI::CommonLib::add_commas($size); }\n";
-}
