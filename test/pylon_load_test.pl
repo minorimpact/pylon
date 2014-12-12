@@ -18,12 +18,11 @@ my $slope = 1;
 my $rand_max = 1000;
 
 my $options = {};
-my $rc = GetOptions($options, qw/debug force help host=s procs=s verbose/);
+my $rc = GetOptions($options, qw/debug help host=s procs=s verbose/);
 
 if (! $rc || $options->{help}) {
     print "Usage: $0 <options/values>\n";
     print "  --debug      Turn debugging output ON.\n";
-    print "  --force      force\n";
     print "  --help       this screen\n";
     print "  --host       pylon server to connect to\n";
     print "  --procs      how many processes to fork for testing\n";
@@ -40,12 +39,6 @@ my $host = $options->{host} || '';
 main();
 
 sub main {
-    unless ($options->{force}) {
-        print "Running this script will remove all data from pylon. Continue? [y/N] ";
-        my $confirm = <STDIN>;
-        die unless ($confirm =~/^y/i);
-    }
-
     my $pylon = new Pylon({verbose=>$verbose, debug=>$debug, host=>$host});
     my $hostname = `/bin/hostname -s`;
     chomp($hostname);
@@ -53,10 +46,6 @@ sub main {
     my $step = 10;
     my $result;
 
-    #$pylon->start();
-    $pylon->command("reset");
-
-    
     for (my $i=0; $i<$procs; $i++) {
         my $pid = fork();
         unless ($pid) {
