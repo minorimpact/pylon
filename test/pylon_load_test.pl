@@ -47,6 +47,7 @@ sub main {
     my $result;
 
     for (my $i=0; $i<$procs; $i++) {
+        my $proc_id = $i;
         my $pid = fork();
         unless ($pid) {
             my $now = time();
@@ -58,7 +59,7 @@ sub main {
                         push (@data, $rand);
                     }
                     my $start_time = time() - ($now % $step) - (($size) * $step);
-                    my $load_string = "load|check-$check_num|$hostname-$$-$server_num|$start_time|$size|$step|" . join("|", @data);
+                    my $load_string = "load|check-$check_num|$hostname-$proc_id-$server_num|$start_time|$size|$step|" . join("|", @data);
                     $result = $pylon->command($load_string);
                     exit unless (parentIsAlive());
                 }
@@ -69,7 +70,7 @@ sub main {
                 foreach my $server_num (1 .. $MAX_SERVERS) {
                     foreach my $check_num (1 .. $MAX_CHECKS) {
                         my $rand = getRand();
-                        my $add_string = "add|check-$check_num|$hostname-$$-$server_num|$rand";
+                        my $add_string = "add|check-$check_num|$hostname-$proc_id-$server_num|$rand";
                         $result = $pylon->command($add_string);
                         last if (((time() % $step) == 0 && time() > $now) || !parentIsAlive());
                     }

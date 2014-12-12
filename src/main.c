@@ -74,6 +74,7 @@ int setnonblock(int fd) {
 void cleanup(struct ev_loop *loop, ev_timer *ev_cleanup, int revents) {
     outlog("cleanup data\n");
     cleanupServerIndex(server_index, now, opts->cleanup);
+    dump_config->abort = 1;
 }
 
 void dump(struct ev_loop *loop, ev_idle *ev_idle, int revents) {
