@@ -21,7 +21,7 @@ valueList_t *getValueList(server_t *server_index, char *server_id, char *check_i
 void deleteServerByName(server_t *server_index, char *server_id);
 server_t *newServerIndex();
 valueList_t *loadData(server_t *server_index, char *server_id, char *check_id, time_t first, int size, int step, double* data, time_t now, int bucket_count, int *steps );
-void cleanupServerIndex(server_t *server_index, time_t now, int cleanup);
+int cleanupServerIndex(server_t *server_index, time_t now, int cleanup);
 void deleteServer(server_t *server);
 void deleteCheck(check_t *check);
 server_t *getServerByName(server_t *server_index, char *server_id, int force);

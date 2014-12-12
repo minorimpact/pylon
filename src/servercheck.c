@@ -6,10 +6,11 @@
 #include <sys/types.h>
 #include "servercheck.h"
 
-void cleanupServerIndex(server_t *server_index, time_t now, int cleanup) {
+int cleanupServerIndex(server_t *server_index, time_t now, int cleanup) {
     server_t *last_server = server_index;
     server_t *server = server_index->next;
     time_t cutoff = now - cleanup;
+    int change = 0;
 
     printf("servercheck.cleanupServerIndex: now=%d, cleanup=%d, cutoff=%d\n", now, cleanup, cutoff);
     while(server != NULL) {
@@ -21,6 +22,7 @@ void cleanupServerIndex(server_t *server_index, time_t now, int cleanup) {
                 last_check->next = check->next;
                 deleteCheck(check);
                 check = last_check->next;
+                change++;
             } else {
                 check = check->next;
             }
@@ -30,10 +32,12 @@ void cleanupServerIndex(server_t *server_index, time_t now, int cleanup) {
             last_server->next = server->next;
             deleteServer(server);
             server = last_server->next;
+            change++;
         } else {
             server = server->next;
         }
     }
+    return change;
 }
 
 server_t *getServerByName(server_t *server_index, char *server_id, int force) {
