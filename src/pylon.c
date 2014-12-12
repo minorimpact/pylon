@@ -308,19 +308,20 @@ char* parseCommand(char *buf, time_t now, server_t *server_index, vlopts_t *opts
 }
 
 void dump_data(dump_config_t *dump_config) {
-    printf("pylon dump_data\n");
-    fflush(stdout);
-
     if (dump_config->completed > (time(NULL) - dump_config->dump_interval)) 
         return;
 
+    printf("pylon.dump_data: start\n");
+    fflush(stdout);
     if (dump_config->abort == 1) {
-        printf("aborting dump\n");
+        printf("pylon.dump_data: aborting dump\n");
         close(dump_config->dump_fd);
         dump_config->dump_fd = 0;
         unlink(dump_config->dump_file_tmp);
         dump_config->completed = time(NULL);
         dump_config->abort = 0;
+        dump_config->check = NULL;
+        dump_config->server = NULL;
         return;
     }
 
@@ -332,88 +333,106 @@ void dump_data(dump_config_t *dump_config) {
         // Advance the current dump pointer.
         if (dump_config->check != NULL) {
             // We're sitting on a valid check, so move to the next one.
-            printf("dump_data.one\n");
+            printf("pylon.dump_data: increment check pointer\n");
+            fflush(stdout);
             dump_config->check = dump_config->check->next;
         }
 
         if (dump_config->check == NULL) {
             // Check is null, so we're either before the first one or after
             // the last one.
-            printf("dump_data.two\n");
+            printf("pylon.dump_data: check pointer is null\n");
+            fflush(stdout);
             if (dump_config->server == NULL) {
                 // Server is null, so this must be our first time through.
                 // Set the server to the first one on the list.
-                printf("dump_data.three\n");
+                printf("pylon.dump_data: first server\n");
+                fflush(stdout);
                 dump_config->server = dump_config->server_index->next;
-                printf("dump_data.eight\n");
             } else {
                 // Otherwise, move us to the next server.
-                printf("dump_data.four\n");
+                printf("pylon.dump_data: increment server pointer\n");
+                fflush(stdout);
                 dump_config->server = dump_config->server->next;
             }
-            // Assuming we have a server, start with the first check.
-            printf("dump_data.nine\n");
+
             if (dump_config->server != NULL) {
-                printf("dump_data.five\n");
+                // Assuming we have a server, start with the first check.
+                printf("pylon.dump_data: server is not null, start with first check\n");
+                fflush(stdout);
                 dump_config->check = dump_config->server->check->next;
             }
         } 
 
         // Process the current pointer.
+        printf("pylon.dump_data: dump_config->dump_fd=%d\n", dump_config->dump_fd);
         if (dump_config->check == NULL && dump_config->server == NULL && dump_config->dump_fd > 0) {
             // Reached the end of the set.  Close the temp file, and swap it to live.
-            printf("closing %s\n", dump_config->dump_file_tmp);
+            printf("pylon.dump_data: reached the end of the set\n");
+            fflush(stdout);
+            printf("pylon.dump_data: closing %s\n", dump_config->dump_file_tmp);
             fflush(stdout);
             close(dump_config->dump_fd);
             dump_config->dump_fd = 0;
-            printf("renaming %s to %s\n", dump_config->dump_file_tmp, dump_config->dump_file);
+            printf("pylon.dump_data: renaming %s to %s\n", dump_config->dump_file_tmp, dump_config->dump_file);
             fflush(stdout);
             rename(dump_config->dump_file_tmp, dump_config->dump_file);
             dump_config->completed = time(NULL);
             return;
         } else if (dump_config->check != NULL && dump_config->server != NULL) {
-            // Sitting on a valid entry.  
-            printf("dump_data.six\n");
+            printf("pylon.dump_data: sitting on a valid entry\n");
+            fflush(stdout);
             if (dump_config->dump_fd < 1) {
                 // Temp file hasn't been created.  Do so.
-                printf("removing %s\n", dump_config->dump_file_tmp);
+                printf("pylon.dump_data: temp file hasn't been created\n");
+                fflush(stdout);
+                printf("pylon.dump_data: removing %s\n", dump_config->dump_file_tmp);
                 fflush(stdout);
                 unlink(dump_config->dump_file_tmp);
-                printf("opening %s\n", dump_config->dump_file_tmp);
-                dump_config->dump_fd = open(dump_config->dump_file_tmp, O_WRONLY|O_CREAT, 0755);
+                printf("pylon.dump_data: opening %s\n", dump_config->dump_file_tmp);
                 fflush(stdout);
-                if (dump_config->dump_fd < 0) {
-                    printf("pylon.dump_data:Can't open %s for writing\n", dump_config->dump_file_tmp);
+                dump_config->dump_fd = open(dump_config->dump_file_tmp, O_WRONLY|O_CREAT, 0755);
+                if (dump_config->dump_fd < 1) {
+                    printf("pylon.dump_data: can't open %s for writing (dump_fd=%d)\n", dump_config->dump_file_tmp, dump_config->dump_fd);
                     fflush(stdout);
-                    exit(-1);
+                    printf("pylon.dump_data: trying again\n");
+                    fflush(stdout);
+                    dump_config->dump_fd = open(dump_config->dump_file_tmp, O_WRONLY|O_CREAT, 0755);
+                    if (dump_config->dump_fd < 1) {
+                        printf("pylon.dump_data: still can't open %s for writing (dump_fd=%d)\n", dump_config->dump_file_tmp, dump_config->dump_fd);
+                        fflush(stdout);
+                        exit(-1);
+                    }
                 }
             }
             // Dump the current check to the temp file.
             dump_config->checkdump[0] = 0;
 
-            printf("collecting %s/%s. buffer size: %d\n", dump_config->server->name, dump_config->check->name, (BUFLEN*sizeof(u_char)));
+            printf("pylon.dump_data: collecting %s/%s. buffer size: %d\n", dump_config->server->name, dump_config->check->name, (BUFLEN*sizeof(u_char)));
             fflush(stdout);
             dumpCheck(dump_config->check, dump_config->server->name, dump_config->now, dump_config->checkdump);
             fflush(stdout);
-            printf("writing to dump file %s\n", dump_config->dump_file_tmp);
+            printf("pylon.dump_data: writing to dump file %s\n", dump_config->dump_file_tmp);
             fflush(stdout);
             int ret;
             ret = write(dump_config->dump_fd, dump_config->checkdump, strlen(dump_config->checkdump));
             if (ret < 0) {
-                printf("error writing to %s: %d\n", dump_config->dump_file_tmp, ret);
+                printf("pylon.dump_data: error writing to %s: %d\n", dump_config->dump_file_tmp, ret);
                 fflush(stdout);
                 exit(-1);
             } else if ( ret < strlen(dump_config->checkdump)) {
-                printf("only wrote %d bytes to %s, should have written %d\n", ret, dump_config->dump_file_tmp, strlen(dump_config->checkdump));
+                printf("pylon.dump_data: only wrote %d bytes to %s, should have written %d\n", ret, dump_config->dump_file_tmp, strlen(dump_config->checkdump));
                 fflush(stdout);
                 exit(-1);
             }
             fflush(stdout);
+            printf("pylon.dump_data: dump_config->dump_fd=%d\n", dump_config->dump_fd);
         } else {
-            printf("dump_data: nothing to do\n");
+            printf("pylon.dump_data: nothing to do\n");
             fflush(stdout);
+            dump_config->completed = time(NULL);
         }
-        printf("dump_data.seven\n");
+        printf("pylon.dump_data: finished dump run\n");
         fflush(stdout);
     }
 }

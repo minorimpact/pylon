@@ -1,88 +1,132 @@
 #!/usr/bin/perl
 
+use FindBin;
+use lib "$FindBin::Bin/../lib";
 use Socket;
 use Time::HiRes qw(gettimeofday tv_interval usleep);
 use Data::Dumper;
 use Getopt::Long;
-use Cwd 'abs_path';
+use Pylon;
 
 $| = 1;
 
-my $abs_path = abs_path($0);
-$abs_path =~/^(.*)\/test\/[^\/]+$/;
-my $PYLON_HOME = $1;
 
-my $MAX_SERVERS = 1000;
-my $MAX_CHECKS = 10;
-my $MAX_PROCESSES = 5;
+my $MAX_SERVERS = 200; # per process
+my $MAX_CHECKS = 25;
 my $PID = $$;
-
-require "$PYLON_HOME/lib/pylon.pl";
+my $slope = 1;
+my $rand_max = 1000;
 
 my $options = {};
-my $rc = GetOptions($options, qw/force help verbose debug/);
+my $rc = GetOptions($options, qw/debug force help host=s procs=s verbose/);
 
 if (! $rc || $options->{help}) {
     print "Usage: $0 <options/values>\n";
-    print "  --force      - force\n";
-    print "  --help       - this screen\n";
-    print "  --verbose    - turn on debugging\n";
-    print "  --debug      - Turn debugging output ON.\n";
+    print "  --debug      Turn debugging output ON.\n";
+    print "  --force      force\n";
+    print "  --help       this screen\n";
+    print "  --host       pylon server to connect to\n";
+    print "  --procs      how many processes to fork for testing\n";
+    print "  --verbose    turn on debugging\n";
     return;
     exit;
 }
 
-our $debug = $options->{debug} || 0;
-our $verbose = $options->{verbose} || $debug || 0;
+my $debug = $options->{debug} || 0;
+my $verbose = $options->{verbose} || $debug || 0;
+my $procs = $options->{procs} || 5;
+my $host = $options->{host} || '';
 
 main();
 
 sub main {
+    unless ($options->{force}) {
+        print "Running this script will remove all data from pylon. Continue? [y/N] ";
+        my $confirm = <STDIN>;
+        die unless ($confirm =~/^y/i);
+    }
+
+    my $pylon = new Pylon({verbose=>$verbose, debug=>$debug, host=>$host});
     my $hostname = `/bin/hostname -s`;
     chomp($hostname);
     my $size = 575;
     my $step = 10;
     my $result;
 
-    unless ($options->{force}) {
-        print "Running this script will remove all data from pylon. Continue? ";
-        my $confirm = <STDIN>;
-        die unless ($confirm =~/^y/i);
-    }
-    pylon("reset");
+    #$pylon->start();
+    $pylon->command("reset");
+
     
-    for (my $i=0;$i<$MAX_PROCESSES;$i++) {
+    for (my $i=0; $i<$procs; $i++) {
         my $pid = fork();
         unless ($pid) {
-            while(1) {
+            my $now = time();
+            foreach my $server_num (1 .. $MAX_SERVERS) {
+                foreach my $check_num (1 .. $MAX_CHECKS) {
+                    my @data = ();
+                    foreach my $pos (1..$size) {
+                        my $rand = getRand();
+                        push (@data, $rand);
+                    }
+                    my $start_time = time() - ($now % $step) - (($size) * $step);
+                    my $load_string = "load|check-$check_num|$hostname-$$-$server_num|$start_time|$size|$step|" . join("|", @data);
+                    $result = $pylon->command($load_string);
+                    exit unless (parentIsAlive());
+                }
+            }
+
+            while(parentIsAlive()) {
                 my $now = time();
                 foreach my $server_num (1 .. $MAX_SERVERS) {
                     foreach my $check_num (1 .. $MAX_CHECKS) {
-                        my $rand = rand(10000);
-                        my $add_string = "add|check-$check_num|$hostname-$server_num-$$|$rand";
-                        $result = pylon($add_string);
+                        my $rand = getRand();
+                        my $add_string = "add|check-$check_num|$hostname-$$-$server_num|$rand";
+                        $result = $pylon->command($add_string);
+                        last if (((time() % $step) == 0 && time() > $now) || !parentIsAlive());
                     }
-                    last if (((time() % $step) == 0 && time() > $now) || !ps());
+                    last if (((time() % $step) == 0 && time() > $now) || !parentIsAlive());
                 }
             }
             exit;
         }
     }
+    my $last_connections = 0;
+    my $last_time = 0;
+    my $last_output = '';
     while (1) {
-        #servers=4516 checks=45067 size=830931114 uptime=723 connections=175160 commands=175160 adds=175129 gets=0 dumps=0
-        my $status = pylon("status");
-        chomp($status);
-        print "$status\r";
-        ($servers, $checks) = ($status =~/servers=(\d+) checks=(\d+)/);
-        print "servers:$servers, checks:$checks\n";
-        sleep(5);
-        for (my $i=0; $i<length($status); $i++) { print " ";  }
+        my $now = time();
+        my $status = $pylon->command("status");
+        my ($servers, $checks, $size, $connections) = ($status =~/servers=(\d+) checks=(\d+) size=(\d+) uptime=\d+ connections=(\d+)/);
+        $output = localtime($now) . " servers: $servers checks: $checks size: $size";
+        if ($last_connections && $last_time) {
+            my $new_connections = $connections - $last_connections;
+            my $connections_per_sec = ($new_connections/($now - $last_time));
+            $output .= sprintf(" connections/sec: %.2f", $connections_per_sec);
+        }
+        $last_connections = $connections;
+        $last_time = $now;
+        $last_output = $output;
+        for (my $i=0; $i<length($last_output) + 10; $i++) { print " ";  }
         print "\r";
+        print "$output\r";
+        sleep(2);
     }
     while (wait() > 0) {}
 }
 
-sub ps {
+sub getRand {
+    if ($rand_max >= 10000) {
+        $slope = -1;
+    } elsif ($rand_max <= 0) {
+        $slope = 1;
+    } elsif (rand(10) < 1) {
+        $slope *= -1;
+    }
+    $rand_max += (10 * $slope);
+    return rand($rand_max);
+}
+
+sub parentIsAlive {
     my $ps = `/bin/ps -p $PID -o comm=`;
     return ($ps?"1":"0");
 }

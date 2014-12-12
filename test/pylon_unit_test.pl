@@ -1,17 +1,13 @@
 #!/usr/bin/perl
 
+use FindBin;
+use lib "$FindBin::Bin/../lib";
 use Socket;
 use Data::Dumper;
-use Cwd 'abs_path';
+use Pylon;
 use Getopt::Long;
 
 $| = 1;
-
-my $abs_path = abs_path($0);
-$abs_path =~/^(.*)\/test\/[^\/]+$/;
-our $PYLON_HOME = $1;
-
-require "$PYLON_HOME/lib/pylon.pl";
 
 my $options = {};
 my $rc = GetOptions($options, qw/debug force help verbose/);
@@ -26,6 +22,7 @@ if (! $rc || $options->{help}) {
 }
 our $debug = $options->{debug} || 0;
 our $verbose = $options->{verbose} || $debug;
+my $pylon = new Pylon({verbose=>$verbose, debug=>$debug});
 
 main();
 
@@ -36,7 +33,7 @@ sub main {
     my $add_value1 = 5755;
     my $add_value2 = 5765;
     my $test_pos = int(rand($size - 10)) + 10;
-    my $dump_time = 10;
+    my $dump_time = 15;
     my $dump_file = "/tmp/pylon_dump";
 
     unless ($options->{force}) {
@@ -45,22 +42,22 @@ sub main {
         die unless ($confirm =~/^y/i);
     }
 
-    stop();
+    $pylon->stop();
     print "checking status\n";
     eval {
-        $result = pylon("status");
+        $result = $pylon->command("status");
     };
     print "$result\n";
     if ($result) { die("FAIL\n"); } 
 
     unlink($dump_file);
-    start();
+    $pylon->start();
     print "checking status\n";
-    $result = pylon("status");
+    $result = $pylon->command("status");
     print $result;
     unless ($result =~/servers=0/) { die("FAIL\n"); } 
 
-    waitForIt({step=>$step, verbose=>$verbose});
+    $pylon->waitForIt({step=>$step});
 
     my $now = time();
     $start_time{$step} = time() - ($size * $step); #the time of the first point of data
@@ -70,49 +67,49 @@ sub main {
     }
     my $load_string = "load|check1|server1|$start_time{$step}|$size|$step|" . join("|", @test);
     print "loading test data\n";
-    $result = pylon($load_string);
+    $result = $pylon->command($load_string);
     print $result;
     unless ($result =~/OK/) { die("FAIL\n"); }
 
     print "checking status\n";
-    $result = pylon("status");
+    $result = $pylon->command("status");
     print $result;
     if ($result =~/servers=1/) { print "OK\n"; } 
     else { die("FAIL\n"); }
 
     print "validating check list.\n";
-    $result = pylon("checks|server1");
+    $result = $pylon->command("checks|server1");
     print $result if ($debug);
     if ($result eq "check1\n") { print "OK\n"; } 
     else { die("FAIL\n"); }
 
     print "dumping and validating test data\n";
-    $result = pylon("dump|check1|server1");
+    $result = $pylon->command("dump|check1|server1");
     print $result if ($debug);
     if ($result =~/$size\|$step\|$test[0]\.0+\|.*\|$test[$size-1]\.0+/) { print "OK\n"; } 
     else { die("FAIL\n")}
 
     print "adding a single value: $add_value1\n";
-    $result = pylon("add|check1|server1|$add_value1");
+    $result = $pylon->command("add|check1|server1|$add_value1");
     if ($result =~/OK/) { print "OK\n"; } 
     else { die("FAIL\n")}
 
     print "dumping and validating test data\n";
-    $result = pylon("dump|check1|server1");
+    $result = $pylon->command("dump|check1|server1");
     print $result if ($debug);
     if ($result =~/$size\|$step\|$test[1]\.0+\|.*\|$test[$size-1]\.0+\|$add_value1\.0+/) { print "OK\n"; } 
     else { die("FAIL\n"); }
 
-    waitForIt({step=>$step, verbose=>$verbose});
+    $pylon->waitForIt({step=>$step});
     $start_time{$step} += $step;
 
     print "adding a single value: $add_value2\n";
-    $result = pylon("add|check1|server1|$add_value2");
+    $result = $pylon->command("add|check1|server1|$add_value2");
     print $result;
     unless ($result =~/OK/) { die("FAIL\n"); }
 
     print "dumping and validating test data\n";
-    $result = pylon("dump|check1|server1");
+    $result = $pylon->command("dump|check1|server1");
     print $result if ($debug);
     if ($result =~/$size\|$step\|$test[2]\.0+\|.*\|$test[$size-1]\.0+\|$add_value1\.0+\|$add_value2\.0+/) { print "OK\n"; } 
     else { die("FAIL\n"); }
@@ -120,40 +117,40 @@ sub main {
     my $load_string = "load|$result";
     $load_string =~s/server1/server2/;
     print "loading test data for second server\n";
-    $result = pylon($load_string);
+    $result = $pylon->command($load_string);
     print $result;
     unless ($result =~/OK/) { die("FAIL\n"); } 
 
     print "dumping and validating test data\n";
-    $result = pylon("dump|check1|server2");
+    $result = $pylon->command("dump|check1|server2");
     print $result if ($debug);
     if ($result =~/$size\|$step\|.*\|5755\.0+\|5765\.0+/) { print "OK\n"; } 
     else { die("FAIL\n"); }
 
     print "checking status\n";
-    $result = pylon("status");
+    $result = $pylon->command("status");
     print $result;
     if ($result =~/servers=2/) { print "OK\n"; } 
     else { die("FAIL\n"); }
 
     print "getting data for multiple servers\n";
-    $result = pylon("get|check1|$start_time{$step}|server1|server2");
+    $result = $pylon->command("get|check1|$start_time{$step}|server1|server2");
     print $result if ($debug);
     if ($result =~/\|$size\|$step\|.*\|11500\.0+\|11510\.0+\|11530\.0+/) { print "OK\n"; }
     else { die("FAIL\n"); }
 
     print "getting average data for multiple servers\n";
-    $result = pylon("avg|check1|$start_time{$step}|server1|server2");
+    $result = $pylon->command("avg|check1|$start_time{$step}|server1|server2");
     print $result if ($debug);
     if ($result =~/$size\|$step\|.*\|5755\.0+\|5765\.0+/) { print "OK\n"; } 
     else { die("FAIL\n"); }
 
     print "resetting server\n";
-    $result = pylon("reset");
+    $result = $pylon->command("reset");
     print $result;
     unless ($result =~/OK/) { die("FAIL\n"); } 
 
-    waitForIt({step=>$step, verbose=>$verbose});
+    $pylon->waitForIt({step=>$step});
     $now = time();
     my @steps = (5, 300, 1800, 7200, 86400);
     my %data;
@@ -165,14 +162,14 @@ sub main {
         }
         $start_time{$step} = time() - ($now % $step) - (($size) * $step);
         my $load_string = "load|check1|server1|$start_time{$step}|$size|$step|" . join("|", @{$data->{$step}});
-        $result = pylon($load_string);
+        $result = $pylon->command($load_string);
         print $result;
         unless ($result =~/OK/) { die("FAIL\n"); } 
     }
 
     foreach my $step (@steps) {
         my $get_string = "get|check1|" . ($start_time{$step} - $step) . "|server1";
-        $result = pylon($get_string);
+        $result = $pylon->command($get_string);
         print "$result" if ($debug);
         my @rdata = split(/\|/,$result);
         my $rtime = shift @rdata;
@@ -202,14 +199,14 @@ sub main {
     }
     print "\n";
 
-    stop();
-    start();
-    waitForIt({step=>$step,verbose=>$verbose});
+    $pylon->stop();
+    $pylon->start();
+    $pylon->waitForIt({step=>$step});
     $now = time();
     foreach my $step (@steps) {
         my $start_time = time() - ($now % $step) - ($size * $step) - $step;
         my $get_string = "get|check1|$start_time|server1";
-        $result = pylon($get_string);
+        $result = $pylon->command($get_string);
         print "$result" if ($debug);
         chomp($result);
         my @rdata = split(/\|/,$result);

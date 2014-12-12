@@ -13,7 +13,7 @@ TMPDIR=/tmp
 
 start() {
 	echo -n $"Starting up pylon server: "
-    rm -f $TMPDIR/pylon.log
+    #rm -f $TMPDIR/pylon.log
     $PYLON_HOME/pylon -d -P $TMPDIR/pylon.pid -L $TMPDIR/pylon.log -F $TMPDIR/pylon_dump
 	RETVAL=$?
     echo

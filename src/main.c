@@ -52,6 +52,7 @@ void outlog(char *str, ... ) {
     va_list args;
     va_start( args, str );
     vprintf(str, args);
+    fflush(stdout);
     va_end( args );
 }
 
