@@ -218,24 +218,23 @@ char* parseCommand(char *buf, time_t now, server_t *server_index, vlopts_t *opts
         server_index->next = NULL;
         strcpy(output_buf, "OK\n");
     } else if (strcmp(command, "status") == 0) {
-        printf("parseCommand: status\n");
-        char tmp_str[255];
+        printf("pylon.parseCommand: status\n");
+        char tmp_str[512];
         int server_count = getServerCount(server_index);
         int check_count = getCheckCount(server_index);
         long int size = serverIndexSize(server_index);
-        //int overflow_buffer_count = 0;
-        //overflow_buffer_t *ob = command_overflow_buffers->next;
-
-        //while (ob != NULL) {
-        //    overflow_buffer_count++;
-        //    ob = ob->next;
-        //}
-        //sprintf(tmp_str, "servers=%d checks=%d size=%ld uptime=%d connections=%d commands=%d adds=%d gets=%d overflow_buffer_count=%d dumps=%d\n", server_count, check_count, size, (now - stats->start_time), stats->connections, stats->commands, stats->adds, stats->gets, overflow_buffer_count, stats->dumps);
         sprintf(tmp_str, "servers=%d checks=%d size=%ld uptime=%d connections=%d commands=%d adds=%d gets=%d dumps=%d\n", server_count, check_count, size, (now - stats->start_time), stats->connections, stats->commands, stats->adds, stats->gets, stats->dumps);
         printf("%s", tmp_str);
 
         strcpy(output_buf, tmp_str);
+    } else if (strcmp(command, "options") == 0) {
+        printf("pylon.parseCommand: options\n");
+        char tmp_str[512];
 
+        sprintf(tmp_str, "cleanup=%d max_buckets=%d bucket_size=%d bucket_count=%d\n", opts->cleanup, opts->max_buckets, opts->bucket_size, opts->bucket_count);
+        printf("%s", tmp_str);
+
+        strcpy(output_buf, tmp_str);
     } else if (strcmp(command, "placeholder") == 0) {
         printf("parseCommand: placeholder\n");
         char tmp_str[255];
