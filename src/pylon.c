@@ -65,62 +65,77 @@ char* parseCommand(char *buf, time_t now, server_t *server_index, vlopts_t *opts
             strcpy(output_buf, "INVALID\n");
         }
         stats->adds++;
-    } else if (strcmp(command, "load") == 0) {
-        char *check_id = strtok(NULL, "|\n\r");
+    } else if (strcmp(command, "checks") == 0) {
         char *server_id = strtok(NULL, "|\n\r");
-        char *first_s = strtok(NULL, "|\n\r");
-        char *size_s = strtok(NULL, "|\n\r");
-        char *step_s = strtok(NULL, "|\n\r");
+        char tmp2[1024];
 
+        printf("parseCommand: checks|%s\n", server_id);
 
-        time_t first = atoi(first_s);
-        int size = atoi(size_s);
-        int step = atoi(step_s);
-        printf("parseCommand: load|%s|%s|%d|%d|%d\n", check_id, server_id, first, size, step);
-
-        double *data = malloc(size*sizeof(double));
-        if (data == NULL) {
-            printf("malloc pylon parseCommand data FAILED\n");
-            exit(-1);
-        }
-        printf("malloc pylon parseCommand data %p\n", data);
-        char *d = strtok(NULL, "|\n\r");
-        for (i=0;i<size;i++) {
-            if (d != NULL) {
-                data[i] = atof(d);
-                d = strtok(NULL, "|\n\r");
-            } else {
-                data[i] = 0.0/0.0;
+        while (server_id != NULL && strcmp(server_id,"EOF") != 0) {
+            int i;
+            char *tmp_str = getCheckList(server_index, server_id);
+            if (tmp_str != NULL) {
+                int strpos = 0;
+                for (i=0; i <= strlen(tmp_str); i++) {
+                    if (*(tmp_str+i) == '|' || i == strlen(tmp_str)) {
+                        int newlen = i - strpos;
+                        strncpy(tmp2,tmp_str + strpos,newlen);
+                        tmp2[newlen] = '|';
+                        tmp2[newlen+1] = 0;
+                        if (strstr(output_buf, tmp2) == NULL) {
+                            strcat(output_buf, tmp2);
+                        }
+                        //printf("pylon.parseCommand.%s:tmp2=%s,i=%d,strpos=%d,strlen(tmp_str)=%d,strlen(output_buf)=%d,tmp_str=%s\n", command, tmp2, i, strpos, strlen(tmp_str), strlen(output_buf), tmp_str + strpos);
+                        i++;
+                        strpos = i;
+                    }
+                }
+                printf("free pylon parseCommand tmp_str-1 %p\n", tmp_str);
+                free(tmp_str);
+                printf("command pylon parseCommand %s output_buf %d(%d)\n", command, strlen(output_buf), BUFLEN*sizeof(u_char));
             }
+            server_id = strtok(NULL, "|\n\r");
         }
-
-        valueList_t *vl = loadData(server_index, server_id, check_id, first, size, step, data, now, opts->bucket_count, opts->buckets);
-        strcpy(output_buf, "OK\n");
-    } else if (strcmp(command, "dump") == 0) {
-        char *check_id = strtok(NULL, "|\n\r");
-        char *server_id = strtok(NULL, "|\n\r");
-
-        printf("parseCommand: dump|%s|%s\n", check_id, server_id);
-
-        if (server_id != NULL && check_id != NULL) {
-            valueList_t *vl = getValueList(server_index, server_id, check_id, now, 0, 0, opts->bucket_count, opts->bucket_size, opts->buckets);
-            while (vl != NULL) {
-                //printf("dumping %s, %s, %d\n", server_id, check_id, vl->step);
-                dumpValueList(check_id, server_id, vl, now, output_buf);
-                vl = vl->next;
-            }
-        } else {
-            strcpy(output_buf, "INVALID\n");
-        }
+        output_buf[strlen(output_buf) - 1] = 0;
+        strcat(output_buf,"\n");
     } else if (strcmp(command, "deleteserver") == 0) {
         char *server_id = strtok(NULL, "|\n\r");
         printf("parseCommand: deleteserver|%s\n", server_id);
         deleteServerByName(server_index, server_id);
+        dump_config->abort = 1;
+    } else if (strcmp(command, "dump") == 0) {
+        char *check_id = strtok(NULL, "|\n\r");
+        char *server_id = strtok(NULL, "|\n\r");
+
+        printf("pylon.parseCommand: dump|%s|%s\n", check_id, server_id);
+
+        if (server_id == NULL || strcmp(server_id, "EOF") || check_id == NULL || strcmp(check_id,"EOF")) {
+            strcpy(output_buf, "INVALID\n");
+            return;
+        }
+
+        valueList_t *vl = getValueList(server_index, server_id, check_id, now, 0, 0, opts->bucket_count, opts->bucket_size, opts->buckets);
+        while (vl != NULL) {
+            dumpValueList(check_id, server_id, vl, now, output_buf);
+            vl = vl->next;
+        }
+    } else if (strcmp(command, "dumpoff") == 0) {
+        printf("pylon.parseCommand: dumpoff\n");
+        dump_config->enabled = 0;
+        dump_config->abort = 1;
+        strcpy(output_buf, "OK\n");
+    } else if (strcmp(command, "dumpon") == 0) {
+        printf("pylon.parseCommand: dumpon\n");
+        dump_config->enabled = 1;
+        strcpy(output_buf, "OK\n");
     } else if (strcmp(command, "get") == 0 || strcmp(command, "avg") == 0) {
         char *check_id = strtok(NULL, "|\n\r");
         char *range_s = strtok(NULL, "|\n\r");
         char *server_id = strtok(NULL, "|\n\r");
-        char tmp_str[50];
+        if (check_id == NULL || strcmp(check_id, "EOF") ||range_s == NULL || strcmp(range_s, "EOF")  ||  server_id == NULL || strcmp(server_id, "EOF") ) {
+            strcpy(output_buf, "INVALID\n");
+            return;
+        }
         char *tmp_output_buf = calloc(BUFLEN, sizeof(u_char));
         if (tmp_output_buf == NULL) {
             printf("malloc pylon parseCommand tmp_output_buf FAILED\n");
@@ -155,6 +170,7 @@ char* parseCommand(char *buf, time_t now, server_t *server_index, vlopts_t *opts
 
             // Use the first server as a model for the data set.
             if (strcmp(server_id,"EOF") != 0 && vl != NULL && server_id != NULL) {
+                char tmp_str[50];
                 // Walk through the list of requested servers and build our data list.
                 while (strcmp(server_id,"EOF") != 0 && server_id != NULL) {
                     //printf("pylon.parseCommand.%s:looking for more servers that have a valuelist for %s\n",command, check_id);
@@ -205,28 +221,37 @@ char* parseCommand(char *buf, time_t now, server_t *server_index, vlopts_t *opts
         printf("free pylon parseCommand tmp_output_buf %p\n", tmp_output_buf);
         free(tmp_output_buf);
         stats->gets++;
-    } else if (strcmp(command, "reset") == 0) {
-        dump_config->abort = 1;
-        printf("parseCommand: reset\n");
-        server_t *server = server_index->next;
+    } else if (strcmp(command, "load") == 0) {
+        char *check_id = strtok(NULL, "|\n\r");
+        char *server_id = strtok(NULL, "|\n\r");
+        char *first_s = strtok(NULL, "|\n\r");
+        char *size_s = strtok(NULL, "|\n\r");
+        char *step_s = strtok(NULL, "|\n\r");
 
-        while(server != NULL) {
-            server_index->next = server->next;
-            deleteServer(server);
-            server = server_index->next;
+
+        time_t first = atoi(first_s);
+        int size = atoi(size_s);
+        int step = atoi(step_s);
+        printf("parseCommand: load|%s|%s|%d|%d|%d\n", check_id, server_id, first, size, step);
+
+        double *data = malloc(size*sizeof(double));
+        if (data == NULL) {
+            printf("malloc pylon parseCommand data FAILED\n");
+            exit(-1);
         }
-        server_index->next = NULL;
-        strcpy(output_buf, "OK\n");
-    } else if (strcmp(command, "status") == 0) {
-        printf("pylon.parseCommand: status\n");
-        char tmp_str[512];
-        int server_count = getServerCount(server_index);
-        int check_count = getCheckCount(server_index);
-        long int size = serverIndexSize(server_index);
-        sprintf(tmp_str, "servers=%d checks=%d size=%ld uptime=%d connections=%d commands=%d adds=%d gets=%d dumps=%d\n", server_count, check_count, size, (now - stats->start_time), stats->connections, stats->commands, stats->adds, stats->gets, stats->dumps);
-        printf("%s", tmp_str);
+        printf("malloc pylon parseCommand data %p\n", data);
+        char *d = strtok(NULL, "|\n\r");
+        for (i=0;i<size;i++) {
+            if (d != NULL) {
+                data[i] = atof(d);
+                d = strtok(NULL, "|\n\r");
+            } else {
+                data[i] = 0.0/0.0;
+            }
+        }
 
-        strcpy(output_buf, tmp_str);
+        valueList_t *vl = loadData(server_index, server_id, check_id, first, size, step, data, now, opts->bucket_count, opts->buckets);
+        strcpy(output_buf, "OK\n");
     } else if (strcmp(command, "options") == 0) {
         printf("pylon.parseCommand: options\n");
         char tmp_str[512];
@@ -242,46 +267,18 @@ char* parseCommand(char *buf, time_t now, server_t *server_index, vlopts_t *opts
         printf("%s", tmp_str);
 
         strcpy(output_buf, tmp_str);
-    } else if (strcmp(command, "checks") == 0) {
-        char *server_id = strtok(NULL, "|\n\r");
-        char tmp2[1024];
+    } else if (strcmp(command, "reset") == 0) {
+        dump_config->abort = 1;
+        printf("parseCommand: reset\n");
+        server_t *server = server_index->next;
 
-        printf("parseCommand: checks|%s\n", server_id);
-
-        while (server_id != NULL && strcmp(server_id,"EOF") != 0) {
-            int i;
-            char *tmp_str = getCheckList(server_index, server_id);
-            if (tmp_str != NULL) {
-                int strpos = 0;
-                //printf("pylon.parseCommand.%s:strlen(tmp_str)=%d\n",command,strlen(tmp_str));
-                for (i=0; i <= strlen(tmp_str); i++) {
-                    if (*(tmp_str+i) == '|' || i == strlen(tmp_str)) {
-                        int newlen = i - strpos;
-                        strncpy(tmp2,tmp_str + strpos,newlen);
-                        tmp2[newlen] = '|';
-                        tmp2[newlen+1] = 0;
-                        if (strstr(output_buf, tmp2) == NULL) {
-                            strcat(output_buf, tmp2);
-                        }
-                        //printf("pylon.parseCommand.%s:tmp2=%s,i=%d,strpos=%d,strlen(tmp_str)=%d,strlen(output_buf)=%d,tmp_str=%s\n", command, tmp2, i, strpos, strlen(tmp_str), strlen(output_buf), tmp_str + strpos);
-                        i++;
-                        strpos = i;
-                    }
-                }
-                printf("free pylon parseCommand tmp_str-1 %p\n", tmp_str);
-                free(tmp_str);
-                printf("command pylon parseCommand %s output_buf %d(%d)\n", command, strlen(output_buf), BUFLEN*sizeof(u_char));
-            }
-            server_id = strtok(NULL, "|\n\r");
+        while(server != NULL) {
+            server_index->next = server->next;
+            deleteServer(server);
+            server = server_index->next;
         }
-        output_buf[strlen(output_buf) - 1] = 0;
-        strcat(output_buf,"\n");
-    } else if (strcmp(command, "version") == 0) {
-        char *tmp_str;
-
-        printf("parseCommand:version\n");
-        strcpy(output_buf, VERSION);
-        strcat(output_buf, "\n");
+        server_index->next = NULL;
+        strcpy(output_buf, "OK\n");
     } else if (strcmp(command, "servers") == 0) {
         char *tmp_str;
 
@@ -292,6 +289,22 @@ char* parseCommand(char *buf, time_t now, server_t *server_index, vlopts_t *opts
             printf("free pylon parseCommand tmp_str-2 %p\n", tmp_str);
             free(tmp_str);
         }
+        strcat(output_buf, "\n");
+    } else if (strcmp(command, "status") == 0) {
+        printf("pylon.parseCommand: status\n");
+        char tmp_str[512];
+        int server_count = getServerCount(server_index);
+        int check_count = getCheckCount(server_index);
+        long int size = serverIndexSize(server_index);
+        sprintf(tmp_str, "servers=%d checks=%d size=%ld uptime=%d connections=%d commands=%d adds=%d gets=%d dumps=%d\n", server_count, check_count, size, (now - stats->start_time), stats->connections, stats->commands, stats->adds, stats->gets, stats->dumps);
+        printf("%s", tmp_str);
+
+        strcpy(output_buf, tmp_str);
+    } else if (strcmp(command, "version") == 0) {
+        char *tmp_str;
+
+        printf("parseCommand:version\n");
+        strcpy(output_buf, VERSION);
         strcat(output_buf, "\n");
     } else {
         printf("parseCommand: unknown command|%s\n", command);
@@ -310,8 +323,6 @@ void dump_data(dump_config_t *dump_config) {
     if (dump_config->completed > (time(NULL) - dump_config->dump_interval)) 
         return;
 
-    printf("pylon.dump_data: start\n");
-    fflush(stdout);
     if (dump_config->abort == 1) {
         printf("pylon.dump_data: aborting dump\n");
         close(dump_config->dump_fd);
@@ -323,6 +334,11 @@ void dump_data(dump_config_t *dump_config) {
         dump_config->server = NULL;
         return;
     }
+    if (dump_config->enabled == 0) 
+        return;
+
+    printf("pylon.dump_data: start\n");
+    fflush(stdout);
 
     if (dump_config->loading == 1) {
         // Haven't implemented this yet, but I eventually want to move the data loading

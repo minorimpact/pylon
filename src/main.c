@@ -72,7 +72,7 @@ int setnonblock(int fd) {
 }
 
 void cleanup(struct ev_loop *loop, ev_timer *ev_cleanup, int revents) {
-    outlog("cleanup data\n");
+    outlog("main.cleanup: start\n");
     if (cleanupServerIndex(server_index, now, opts->cleanup) > 0) {
         dump_config->abort = 1;
     }
@@ -81,12 +81,12 @@ void cleanup(struct ev_loop *loop, ev_timer *ev_cleanup, int revents) {
 void dump(struct ev_loop *loop, ev_idle *ev_idle, int revents) {
     if (dump_config->completed > (time(NULL) - dump_config->dump_interval))
         return;
-    outlog("dump\n");
+    outlog("main.dump: start\n");
     dump_data(dump_config);
 }
 
 void on_read(struct ev_loop *loop, ev_io *ev_read, int revents) {
-    outlog("on read\n");
+    outlog("main.on_read: start\n");
 
     //int len = read(ev_read->fd, input_buf, BUFLEN);
     int len = 0;
@@ -94,9 +94,9 @@ void on_read(struct ev_loop *loop, ev_io *ev_read, int revents) {
     while ((read_size = read(ev_read->fd, input_buf + len, 1024)) > 0) {
         len = len + read_size;
         input_buf[len] = 0;
-        outlog("read:%d %s\n", read_size, input_buf);
+        outlog("main.on_read: read:%d %s\n", read_size, input_buf);
         if (len + 1024 > BUFLEN) {
-            outlog("too much data\n");
+            outlog("main.on_read too much data\n");
             break;
         }
     }
@@ -108,19 +108,19 @@ void on_read(struct ev_loop *loop, ev_io *ev_read, int revents) {
         if (output_buf != NULL && strlen(output_buf) > 0) {
             len = write(ev_read->fd, output_buf, strlen(output_buf));
             if (len == -1) {
-                outlog("ERR:write errno:%d\n", errno);
+                outlog("main.on_read: ERR:write errno:%d\n", errno);
             }
         }
 
         if (output_buf != NULL) {
-            outlog("free pylon on_read output_buf %p\n", output_buf);
+            outlog("pylon.on_read: free output_buf %p\n", output_buf);
             free(output_buf);
         }
     }
 
     close(ev_read->fd);
     ev_io_stop(loop, ev_read);
-    outlog("free pylon on_read ev_read %p\n", ev_read);
+    outlog("main.on_read: free ev_read %p\n", ev_read);
     free(ev_read);
     return;
 }
@@ -228,6 +228,7 @@ int main(int argc, char **argv) {
     dump_config->dump_interval = DUMP_INTERVAL;
     dump_config->abort = 0;
     dump_config->dump_fd = 0;
+    dump_config->enabled = 0;
 
     bool do_daemonize = false;
     char *pid_file = "/var/run/pylon.pid";
@@ -382,6 +383,7 @@ int main(int argc, char **argv) {
 
     // Add dumper, if enabled.
     if (dump_config->dump_file != NULL) {
+        dump_config->enabled = 1;
         load_data(dump_config, now, opts);
         ev_idle ev_idle;
         ev_idle_init(&ev_idle, dump);
