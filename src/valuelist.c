@@ -6,8 +6,6 @@
 #include <malloc.h>
 #include "valuelist.h"
 
-#define LIMIT 1000000000000
-
 /*
  * General Notes:
  *  - These functions all take "now" as an option so when multiple functions are called together for multiple objects, they're all working off same value of
@@ -18,10 +16,10 @@
  * Returns a pointer to a new valuelist object.
  */
 valueList_t *newValueList(int size, int step, time_t now) {
-    printf("valuelist.newValueList(size='%d', step='%d')\n", size, step);
+    outlog(7, "valuelist.newValueList: start (size='%d', step='%d')\n", size, step);
     valueList_t *vl = malloc(sizeof(valueList_t));
     if (vl == NULL) {
-        printf("malloc valuelist newValueList vl FAILED\n");
+        outlog(1, "valuelist.newValueList: malloc vl FAILED\n");
         exit(-1);
     }
 
@@ -34,7 +32,7 @@ valueList_t *newValueList(int size, int step, time_t now) {
 
     vl->data = malloc(size*sizeof(double));
     if (vl->data == NULL) {
-        printf("malloc valuelist newValueList vl->data FAILED\n");
+        outlog(1, "valuelist.newValueList: malloc vl->data FAILED\n");
         exit(-1);
     }
     int i;
@@ -58,7 +56,7 @@ void addValue(valueList_t *vl, double value, time_t now, int type) {
     if (vl == NULL) {
         return;
     }
-    printf("valuelist.addValue(value='%f', step='%d')\n", value, vl->step);
+    outlog(7, "valuelist.addValue: start (value='%f', step='%d')\n", value, vl->step);
     makeValueListCurrent(vl,now);
     int last = vl->first + (vl->step * (vl->size - 1));
     int i;
@@ -294,12 +292,7 @@ void dumpValueList(char *check, char *server, valueList_t *vl, time_t now, char 
 
     int i;
     for (i=0; i<vl->size; i++) {
-        //if (data[i] < LIMIT) {
-            sprintf(output_buf + strlen(output_buf),"%.5f|",data[i]);
-        //} else {
-        //    sprintf(output_buf + strlen(output_buf),"%d|",LIMIT);
-        //}
-
+        sprintf(output_buf + strlen(output_buf),"%.5f|",data[i]);
     }
     output_buf[strlen(output_buf) -1] = '\n';
 }

@@ -12,7 +12,7 @@ int cleanupServerIndex(server_t *server_index, time_t now, int cleanup) {
     time_t cutoff = now - cleanup;
     int change = 0;
 
-    printf("servercheck.cleanupServerIndex: now=%d, cleanup=%d, cutoff=%d\n", now, cleanup, cutoff);
+    outlog(7, "servercheck.cleanupServerIndex: start\n");
     while(server != NULL) {
         check_t *last_check = server->check;
         check_t *check = server->check->next;
@@ -52,21 +52,20 @@ server_t *getServerByName(server_t *server_index, char *server_id, int force) {
     }
 
     if (force > 0 && strlen(server_id) < 52) {
-        printf("servercheck.getServerByName:creating server_id=%s\n", server_id);
         server = malloc(sizeof(server_t));
         if (server == NULL) {
-            printf("malloc servercheck getServerByName server FAILED\n");
+            outlog(1, "servercheck.getServerByName: malloc server FAILED\n");
             exit(-1);
         }
         server->name = malloc((strlen(server_id) + 1) * sizeof(char));
         if (server->name == NULL) {
-            printf("malloc servercheck getServerByName server->name FAILED\n");
+            outlog(1, "servercheck.getServerByName: malloc server->name FAILED\n");
             exit(-1);
         }
         strcpy(server->name, server_id);
         server->check = malloc(sizeof(check_t));
         if (server->check == NULL) {
-            printf("malloc servercheck getServerByName server->check FAILED\n");
+            outlog(1, "servercheck.getServerByName: malloc server->check FAILED\n");
             exit(-1);
         }
         server->check->next = NULL;
@@ -79,6 +78,7 @@ server_t *getServerByName(server_t *server_index, char *server_id, int force) {
 }
 
 check_t *getServerCheckByName(server_t *server_index, char *server_id, char *check_id, int force) {
+    outlog(7, "servercheck.getServerCheckByName: start\n");
     server_t *server = getServerByName(server_index, server_id, force);
     if (server == NULL) {
         return NULL;
@@ -93,21 +93,20 @@ check_t *getServerCheckByName(server_t *server_index, char *server_id, char *che
     }
 
     if (force > 0 && strlen(server_id) <=52) {
-        printf("servercheck.getServerCheckByName:creating check_id=%s for server_id=%s\n", check_id, server_id);
         check = malloc(sizeof(check_t));
         if (check == NULL) {
-            printf("malloc servercheck getServerCheckByName check FAILED\n");
+            outlog(1, "servercheck.getServerCheckByName: malloc check FAILED\n");
             exit(-1);
         }
         check->name = malloc((strlen(check_id)+1) * sizeof(char));
         if (check->name == NULL) {
-            printf("malloc servercheck getServerCheckByName check->name FAILED\n");
+            outlog(1, "servercheck.getServerCheckByName: malloc check->name FAILED\n");
             exit(-1);
         }
         strcpy(check->name, check_id);
         check->vl = malloc(sizeof(valueList_t));
         if (check->vl == NULL) {
-            printf("malloc servercheck getServerCheckByName check->vl FAILED\n");
+            outlog(1, "servercheck.getServerCheckByName: malloc check->vl FAILED\n");
             exit(-1);
         }
         check->vl->next = NULL;
@@ -182,10 +181,10 @@ char *getServerList(server_t *server_index) {
 
     char *tmp_str = malloc((server_size + 1) * sizeof(char));
     if (tmp_str == NULL) {
-        printf("malloc servercheck getServerList tmp_str FAILED\n");
+        outlog(1, "servercheck.getServerList: malloc tmp_str FAILED\n");
         exit(-1);
     }
-    printf("malloc servercheck getServerList tmp_str %p\n", tmp_str);
+    outlog(10, "servercheck.getServerList: malloc tmp_str %p\n", tmp_str);
     tmp_str[0] = 0;
 
     server = server_index->next;
@@ -220,13 +219,12 @@ char *getCheckList(server_t *server_index, char *server_id) {
     }
 
     if (check_size > 0) {
-        //printf("servercheck.getCheckList:server_id=%s,check_size=%d\n", server_id, check_size);
         char *tmp_str = malloc(sizeof(char) * (check_size+1));
         if (tmp_str == NULL) {
-            printf("malloc servercheck getServerCheckList tmp_str FAILED\n");
+            outlog(1, "servercheck.getServerCheckList: malloc tmp_str FAILED\n");
             exit(-1);
         }
-        printf("malloc servercheck getServerCheckList tmp_str %p\n", tmp_str);
+        outlog(10, "servercheck.getServerCheckList: malloc tmp_str %p\n", tmp_str);
         tmp_str[0] = 0;
         check = server->check->next;
         while(check != NULL) {
@@ -280,7 +278,7 @@ valueList_t *getValueList(server_t *server_index, char *server_id, char *check_i
 }
 
 void deleteServer(server_t *server) {
-    printf("servercheck.deleteServer: deleting %s\n", server->name);
+    outlog(7, "servercheck.deleteServer: start %s\n", server->name);
     if (server->check->next != NULL) {
         check_t *check = server->check->next;
         while(check != NULL) {
@@ -295,7 +293,7 @@ void deleteServer(server_t *server) {
 }
 
 void deleteCheck(check_t *check) {
-    printf("servercheck.deleteCheck: deleting %s\n", check->name);
+    outlog(7, "servercheck.deleteCheck: start %s\n", check->name);
     valueList_t *vl = check->vl->next;
     while (vl != NULL) {
         valueList_t *next = vl->next; 
@@ -308,6 +306,7 @@ void deleteCheck(check_t *check) {
 }
 
 void deleteServerByName(server_t *server_index, char *server_id) {
+    outlog(7, "servercheck.deleteServerByName: start\n");
     server_t *server = server_index->next;
     server_t *prev = server_index;
 
@@ -339,9 +338,10 @@ void deleteServerByName(server_t *server_index, char *server_id) {
 }
 
 server_t *newServerIndex() {
+    outlog(7, "servercheck.newServerIndex: start\n");
     server_t *server_index = malloc(sizeof(server_t));
     if (server_index == NULL) {
-        printf("malloc servercheck newServerIndex server_index FAILED\n");
+        outlog(1, "servercheck.newServerIndex: malloc server_index FAILED\n");
         exit(-1);
     }
     server_index->name = NULL;
@@ -351,7 +351,7 @@ server_t *newServerIndex() {
 
 valueList_t *loadData(server_t *server_index, char *server_id, char *check_id, time_t first, int size, int step, double* data, time_t now, int bucket_count, int *steps ) {
     // Get the first valuelist for this server/check.  If none exist, create a default.
-    printf("servercheck.loadData: server_id=%s,check_id=%s,size=%d,step=%d\n",server_id, check_id, size, step);
+    outlog(7, "servercheck.loadData: start server_id=%s,check_id=%s,size=%d,step=%d\n",server_id, check_id, size, step);
     check_t *check = getServerCheckByName(server_index, server_id, check_id, 1);
     valueList_t *vl = check->vl->next;
     if (vl == NULL) {
@@ -403,13 +403,14 @@ valueList_t *loadData(server_t *server_index, char *server_id, char *check_id, t
 void dumpCheck(check_t *check, char *servername, time_t now, char *output_buf) {
     valueList_t *vl = check->vl->next;
     while (vl != NULL) {
-        printf("strlen servercheck dumpCheck (%s/%s) output_buf %d\n", check->name, servername, strlen(output_buf));
+        outlog(8, "servercheck.dumpCheck: strlen (%s/%s) output_buf %d\n", check->name, servername, strlen(output_buf));
         dumpValueList(check->name, servername, vl, now, output_buf);
         vl = vl->next;
     }
 }
 
 void dumpServer(server_t *server, time_t now, char *output_buf) {
+    outlog(7, "servercheck.dumpServer: start\n");
     check_t *check = server->check->next;
     while (check != NULL) {
         dumpCheck(check, server->name, now, output_buf);

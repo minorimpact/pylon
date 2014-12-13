@@ -11,7 +11,7 @@ use Pylon;
 $| = 1;
 
 
-my $MAX_SERVERS = 200; # per process
+my $MAX_SERVERS = 100; # per process
 my $MAX_CHECKS = 25;
 my $PID = $$;
 my $slope = 1;

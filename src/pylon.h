@@ -6,7 +6,7 @@
 #define BUCKET_SIZE 575
 #define CLEANUP_TIMEOUT 300.
 #define DUMP_INTERVAL 10
-#define VERSION "0.0.0-29"
+#define VERSION "0.0.0-30"
 
 /* Length of each buffer in the buffer queue.  Also becomes the amount
  * of data we try to read per call to read(2). */
@@ -44,6 +44,7 @@ typedef struct vlopts {
     int bucket_count;
     int *buckets;
     int cleanup;
+    int loglevel;
 } vlopts_t;
 
 char* parseCommand(char *buf, time_t now, server_t *server_index, vlopts_t *opts, stats_t *stats, dump_config_t *dump_config);
