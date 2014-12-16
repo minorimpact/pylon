@@ -33,7 +33,6 @@ sub main {
     my $add_value1 = 5755;
     my $add_value2 = 5765;
     my $test_pos = int(rand($size - 10)) + 10;
-    my $dump_time = 15;
     my $dump_file = "/tmp/pylon_dump";
 
     unless ($options->{force}) {
@@ -56,6 +55,7 @@ sub main {
     $result = $pylon->command("status");
     print $result;
     unless ($result =~/servers=0/) { die("FAIL\n"); } 
+    $pylon->command("loglevel|10");
 
     $pylon->waitForIt({step=>$step});
 
@@ -190,9 +190,9 @@ sub main {
         }
     }
 
+    my $options = $pylon->options();
     print "waiting for disk dump:\n";
-    print "$dump_time\r";
-    for (my $i=$dump_time; $i>0;$i--) {
+    for (my $i=$options->{dump_interval} + 5; $i>0;$i--) {
         print " " if ($i < 10);
         print "$i\r";
         sleep(1);
@@ -231,5 +231,39 @@ sub main {
             die("FAIL\n");
         }
     }
+
+    my $cleanup_time = 10;
+    print "reseting server\n";
+    $pylon->command("reset");
+    print "setting cleanup time to $cleanup_time seconds\n";
+    $pylon->command("loglevel|10");
+    $pylon->command("cleanup|$cleanup_time");
+    $options = $pylon->options();
+    die("FAIL\n") unless ($cleanup_time == $options->{cleanup});
+    print "OK\n";
+
+    print "Adding test server data\n";
+    $pylon->command("add|check1|server1|$cleanup_time");
+    print "checking status\n";
+    $result = $pylon->command("status");
+    print $result;
+    if ($result =~/servers=1/) { print "OK\n"; } 
+    else { die("FAIL\n"); }
+
+    print "waiting for timeout\n";
+    for (my $i=$cleanup_time + 5; $i>0;$i--) {
+        print " " if ($i < 10); print "$i\r"; sleep(1);
+    }
+    print "\n";
+
+    print "forcing a cleanup\n";
+    $result = $pylon->command("cleanup|0");
+    print $result;
+    die("FAIL\n") unless ($result eq "OK\n");
+    print "checking status\n";
+    $result = $pylon->command("status");
+    print $result;
+    if ($result =~/servers=0/) { print "OK\n"; } 
+    else { die("FAIL\n"); }
 }
 

@@ -109,6 +109,11 @@ char* parseCommand(char *buf, time_t now, server_t *server_index, vlopts_t *opts
         int cleanup = atoi(cleanup_s);
         if (cleanup > 0) 
             opts->cleanup = cleanup;
+        else if (cleanup == 0) {
+            if (cleanupServerIndex(server_index, now, opts->cleanup) > 0) {
+                dump_config->abort = 1;
+            }
+        }
 
         strcpy(output_buf, "OK\n");
     } else if (strcmp(command, "deleteserver") == 0) {

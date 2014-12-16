@@ -3,15 +3,12 @@
  * gcc -lev main.c pylon.c servercheck.c valuelist.c daemon.c -o ../pylon
  */
 
+#include <sys/time.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
-
-/* For inet_ntoa. */
 #include <arpa/inet.h>
 
-/* Required by event.h. */
-#include <sys/time.h>
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -22,9 +19,6 @@
 #include <err.h>
 #include <stdbool.h>
 #include <stdarg.h>
-
-/* Easy sensible linked lists. */
-#include <sys/queue.h>
 
 #ifdef _EVSUB
 #include <libev/ev.h>

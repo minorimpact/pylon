@@ -72,18 +72,32 @@ sub waitForIt {
 
 sub start {
     my $self = shift || return;
-    print "starting pylon\n";
+    print "starting pylon\n" if ($self->{verbose});
     my $command = "$FindBin::Bin/../init start";
-    print "$command\n" if ($self->{verbose});
+    print "$command\n" if ($self->{debug});
     print `$command`;
+    sleep 1;
 }
 
 sub stop {
     my $self = shift || return;
-    print "stopping pylon\n";
+    print "stopping pylon\n" if ($self->{verbose});
     my $command = "$FindBin::Bin/../init stop";
-    print "$command\n" if ($self->{verbose});
+    print "$command\n" if ($self->{debug});
     print `$command`;
 }
+
+sub options {
+    my $self = shift || return;
+    my $options;
+
+    my $option_str = $self->command("options");
+    foreach my $o (split(/ /, $option_str)) {
+        my ($key, $value) = split(/=/, $o);
+        $options->{$key} = $value;
+    }
+    return $options;
+}
+
 
 1;
