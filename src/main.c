@@ -26,7 +26,11 @@
 /* Easy sensible linked lists. */
 #include <sys/queue.h>
 
+#ifdef _EVSUB
 #include <libev/ev.h>
+#else
+#include <ev.h>
+#endif
 
 
 #include "pylon.h"

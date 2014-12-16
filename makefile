@@ -1,5 +1,12 @@
 CC=gcc
 CFLAGS=-lev
+SRCDIR=src
+FILES=$(SRCDIR)/main.c $(SRCDIR)/pylon.c $(SRCDIR)/servercheck.c $(SRCDIR)/valuelist.c $(SRCDIR)/daemon.c
+OUTPUT=pylon
 
 all:
-	$(CC) $(CFLAGS) src/main.c src/pylon.c src/servercheck.c src/valuelist.c src/daemon.c -o pylon
+ifeq ($(shell ls /usr/include/libev/ev.h 2>/dev/null),)
+	$(CC) $(CFLAGS) $(FILES) -o $(OUTPUT)
+else
+	$(CC) $(CFLAGS) -D_EVSUB $(FILES) -o $(OUTPUT)
+endif
