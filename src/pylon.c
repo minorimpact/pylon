@@ -96,6 +96,21 @@ char* parseCommand(char *buf, time_t now, server_t *server_index, vlopts_t *opts
         }
         output_buf[strlen(output_buf) - 1] = 0;
         strcat(output_buf,"\n");
+    } else if (strcmp(command, "cleanup") == 0) {
+        char *cleanup_s = strtok(NULL, "|\n\r");
+
+        outlog(5, "pylon.parseCommand: cleanup|%s\n", cleanup_s);
+        if (cleanup_s == NULL || strcmp(cleanup_s, "EOF") == 0) {
+            outlog(5, "pylon.parseCommand: INVALID\n");
+            strcpy(output_buf, "INVALID");
+            return;
+        }
+
+        int cleanup = atoi(cleanup_s);
+        if (cleanup > 0) 
+            opts->cleanup = cleanup;
+
+        strcpy(output_buf, "OK\n");
     } else if (strcmp(command, "deleteserver") == 0) {
         char *server_id = strtok(NULL, "|\n\r");
         outlog(5, "pylon.parseCommand: deleteserver|%s\n", server_id);
@@ -273,7 +288,7 @@ char* parseCommand(char *buf, time_t now, server_t *server_index, vlopts_t *opts
         outlog(5, "pylon.parseCommand: options\n");
         char tmp_str[512];
 
-        sprintf(tmp_str, "cleanup=%d max_buckets=%d bucket_size=%d bucket_count=%d loglevel=%d\n", opts->cleanup, opts->max_buckets, opts->bucket_size, opts->bucket_count, opts->loglevel);
+        sprintf(tmp_str, "cleanup=%d max_buckets=%d bucket_size=%d bucket_count=%d loglevel=%d dump_interval=%d\n", opts->cleanup, opts->max_buckets, opts->bucket_size, opts->bucket_count, opts->loglevel, dump_config->dump_interval);
 
         strcpy(output_buf, tmp_str);
     } else if (strcmp(command, "placeholder") == 0) {
