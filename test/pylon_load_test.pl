@@ -1,7 +1,5 @@
 #!/usr/bin/perl
 
-use FindBin;
-use lib "$FindBin::Bin/../lib";
 use Socket;
 use Time::HiRes qw(gettimeofday tv_interval usleep);
 use Data::Dumper;
@@ -62,7 +60,9 @@ sub main {
                     my $load_string = "load|check-$check_num|$hostname-$proc_id-$server_num|$start_time|$size|$step|" . join("|", @data);
                     $result = $pylon->command($load_string);
                     exit unless (parentIsAlive());
+                    last if (((time() % $step) == 0 && time() > $now) || !parentIsAlive());
                 }
+                last if (((time() % $step) == 0 && time() > $now) || !parentIsAlive());
             }
 
             while(parentIsAlive()) {

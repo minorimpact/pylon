@@ -1,7 +1,5 @@
 #!/usr/bin/perl
 
-use FindBin;
-use lib "$FindBin::Bin/../lib";
 use Socket;
 use Data::Dumper;
 use Pylon;
