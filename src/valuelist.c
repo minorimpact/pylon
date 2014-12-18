@@ -284,9 +284,9 @@ void deleteValueList(valueList_t *vl) {
     free(vl);
 }
 
-void dumpValueList(char *check, char *server, valueList_t *vl, time_t now, char *output_buf) {
+void dumpValueList(char *graph, char *server, valueList_t *vl, time_t now, char *output_buf) {
     makeValueListCurrent(vl, now);
-    sprintf(output_buf + strlen(output_buf), "%s|%s|%d|%d|%d|", check, server, vl->first, vl->size, vl->step);
+    sprintf(output_buf + strlen(output_buf), "%s|%s|%d|%d|%d|", graph, server, vl->first, vl->size, vl->step);
     double data[vl->size];
     getValueListData(vl, data);
 

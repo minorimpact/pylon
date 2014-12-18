@@ -10,7 +10,7 @@ $| = 1;
 
 
 my $MAX_SERVERS = 100; # per process
-my $MAX_CHECKS = 25;
+my $MAX_GRAPHS = 25;
 my $PID = $$;
 my $slope = 1;
 my $rand_max = 1000;
@@ -50,14 +50,14 @@ sub main {
         unless ($pid) {
             my $now = time();
             foreach my $server_num (1 .. $MAX_SERVERS) {
-                foreach my $check_num (1 .. $MAX_CHECKS) {
+                foreach my $graph_num (1 .. $MAX_GRAPHS) {
                     my @data = ();
                     foreach my $pos (1..$size) {
                         my $rand = getRand();
                         push (@data, $rand);
                     }
                     my $start_time = time() - ($now % $step) - (($size) * $step);
-                    my $load_string = "load|check-$check_num|$hostname-$proc_id-$server_num|$start_time|$size|$step|" . join("|", @data);
+                    my $load_string = "load|graph-$graph_num|$hostname-$proc_id-$server_num|$start_time|$size|$step|" . join("|", @data);
                     $result = $pylon->command($load_string);
                     exit unless (parentIsAlive());
                     last if (((time() % $step) == 0 && time() > $now) || !parentIsAlive());
@@ -68,9 +68,9 @@ sub main {
             while(parentIsAlive()) {
                 my $now = time();
                 foreach my $server_num (1 .. $MAX_SERVERS) {
-                    foreach my $check_num (1 .. $MAX_CHECKS) {
+                    foreach my $graph_num (1 .. $MAX_GRAPHS) {
                         my $rand = getRand();
-                        my $add_string = "add|check-$check_num|$hostname-$proc_id-$server_num|$rand";
+                        my $add_string = "add|graph-$graph_num|$hostname-$proc_id-$server_num|$rand";
                         $result = $pylon->command($add_string);
                         last if (((time() % $step) == 0 && time() > $now) || !parentIsAlive());
                     }
@@ -86,8 +86,8 @@ sub main {
     while (1) {
         my $now = time();
         my $status = $pylon->command("status");
-        my ($servers, $checks, $size, $connections) = ($status =~/servers=(\d+) checks=(\d+) size=(\d+) uptime=\d+ connections=(\d+)/);
-        $output = localtime($now) . " servers: $servers checks: $checks size: $size";
+        my ($servers, $graphs, $size, $connections) = ($status =~/servers=(\d+) graphs=(\d+) size=(\d+) uptime=\d+ connections=(\d+)/);
+        $output = localtime($now) . " servers: $servers graphs: $graphs size: $size";
         if ($last_connections && $last_time) {
             my $new_connections = $connections - $last_connections;
             my $connections_per_sec = ($new_connections/($now - $last_time));

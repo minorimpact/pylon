@@ -1,7 +1,7 @@
 CC=gcc
 CFLAGS=-lev
 SRCDIR=src
-FILES=$(SRCDIR)/main.c $(SRCDIR)/pylon.c $(SRCDIR)/servercheck.c $(SRCDIR)/valuelist.c $(SRCDIR)/daemon.c
+FILES=$(SRCDIR)/main.c $(SRCDIR)/pylon.c $(SRCDIR)/servergraph.c $(SRCDIR)/valuelist.c $(SRCDIR)/daemon.c
 OUTPUT=pylon
 
 all:

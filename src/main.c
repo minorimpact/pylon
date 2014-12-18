@@ -1,6 +1,6 @@
 /*
  * yum install gcc libev libev-devel
- * gcc -lev main.c pylon.c servercheck.c valuelist.c daemon.c -o ../pylon
+ * gcc -lev main.c pylon.c servergraph.c valuelist.c daemon.c -o ../pylon
  */
 
 #include <sys/time.h>

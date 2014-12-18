@@ -40,21 +40,21 @@ char* parseCommand(char *buf, time_t now, server_t *server_index, vlopts_t *opts
 
     command = strtok(tmp, "|\n\r");
     if (strcmp(command, "add") == 0) {
-        char *check_id = strtok(NULL, "|\n\r");
+        char *graph_id = strtok(NULL, "|\n\r");
         char *server_id = strtok(NULL, "|\n\r");
         char *value = strtok(NULL, "|\n\r");
         char *type_s = strtok(NULL, "|\n\r");
         valueList_t *vl = NULL;
         int type = 0;
 
-        outlog(5, "pylon.parseCommand: add|%s|%s|%s|%s\n", check_id, server_id, value, type_s);
+        outlog(5, "pylon.parseCommand: add|%s|%s|%s|%s\n", graph_id, server_id, value, type_s);
 
         if (server_id != NULL && value != NULL && strcmp(server_id,"EOF") !=0 && strcmp(value,"EOF") != 0) {
             if (strcmp(type_s, "counter") == 0) {
                 type = 1;
             }
 
-            vl = getValueList(server_index, server_id, check_id, now, 0, 1, opts->bucket_count, opts->bucket_size, opts->buckets);
+            vl = getValueList(server_index, server_id, graph_id, now, 0, 1, opts->bucket_count, opts->bucket_size, opts->buckets);
             if (vl != NULL) {
                 addValue(vl, atof(value), now, type);
                 strcpy(output_buf, "OK\n");
@@ -65,15 +65,15 @@ char* parseCommand(char *buf, time_t now, server_t *server_index, vlopts_t *opts
             strcpy(output_buf, "INVALID\n");
         }
         stats->adds++;
-    } else if (strcmp(command, "checks") == 0) {
+    } else if (strcmp(command, "graphs") == 0) {
         char *server_id = strtok(NULL, "|\n\r");
         char tmp2[1024];
 
-        outlog(5, "pylon.parseCommand: checks|%s\n", server_id);
+        outlog(5, "pylon.parseCommand: graphs|%s\n", server_id);
 
         while (server_id != NULL && strcmp(server_id,"EOF") != 0) {
             int i;
-            char *tmp_str = getCheckList(server_index, server_id);
+            char *tmp_str = getGraphList(server_index, server_id);
             if (tmp_str != NULL) {
                 int strpos = 0;
                 for (i=0; i <= strlen(tmp_str); i++) {
@@ -122,19 +122,19 @@ char* parseCommand(char *buf, time_t now, server_t *server_index, vlopts_t *opts
         deleteServerByName(server_index, server_id);
         dump_config->abort = 1;
     } else if (strcmp(command, "dump") == 0) {
-        char *check_id = strtok(NULL, "|\n\r");
+        char *graph_id = strtok(NULL, "|\n\r");
         char *server_id = strtok(NULL, "|\n\r");
 
-        outlog(5, "pylon.parseCommand: dump|%s|%s\n", check_id, server_id);
+        outlog(5, "pylon.parseCommand: dump|%s|%s\n", graph_id, server_id);
 
-        if (server_id == NULL || strcmp(server_id, "EOF") == 0 || check_id == NULL || strcmp(check_id,"EOF") == 0) {
+        if (server_id == NULL || strcmp(server_id, "EOF") == 0 || graph_id == NULL || strcmp(graph_id,"EOF") == 0) {
             strcpy(output_buf, "INVALID\n");
             return;
         }
 
-        valueList_t *vl = getValueList(server_index, server_id, check_id, now, 0, 0, opts->bucket_count, opts->bucket_size, opts->buckets);
+        valueList_t *vl = getValueList(server_index, server_id, graph_id, now, 0, 0, opts->bucket_count, opts->bucket_size, opts->buckets);
         while (vl != NULL) {
-            dumpValueList(check_id, server_id, vl, now, output_buf);
+            dumpValueList(graph_id, server_id, vl, now, output_buf);
             vl = vl->next;
         }
     } else if (strcmp(command, "dumpoff") == 0) {
@@ -148,11 +148,11 @@ char* parseCommand(char *buf, time_t now, server_t *server_index, vlopts_t *opts
             dump_config->enabled = 1;
         strcpy(output_buf, "OK\n");
     } else if (strcmp(command, "get") == 0 || strcmp(command, "avg") == 0) {
-        char *check_id = strtok(NULL, "|\n\r");
+        char *graph_id = strtok(NULL, "|\n\r");
         char *range_s = strtok(NULL, "|\n\r");
         char *server_id = strtok(NULL, "|\n\r");
-        outlog(5, "pylon.parseCommand: get|%s|%s|%s\n", check_id, range_s, server_id);
-        if (check_id == NULL || strcmp(check_id, "EOF") == 0 ||
+        outlog(5, "pylon.parseCommand: get|%s|%s|%s\n", graph_id, range_s, server_id);
+        if (graph_id == NULL || strcmp(graph_id, "EOF") == 0 ||
             range_s == NULL || strcmp(range_s, "EOF") == 0 ||
             server_id == NULL || strcmp(server_id, "EOF") == 0) {
             strcpy(output_buf, "INVALID\n");
@@ -171,12 +171,12 @@ char* parseCommand(char *buf, time_t now, server_t *server_index, vlopts_t *opts
 
         range = atoi(range_s);
 
-        valueList_t *vl = getValueList(server_index, server_id, check_id, now, range, 0, opts->bucket_count, opts->bucket_size, opts->buckets);
+        valueList_t *vl = getValueList(server_index, server_id, graph_id, now, range, 0, opts->bucket_count, opts->bucket_size, opts->buckets);
 
         if (vl == NULL) {
             server_id = strtok(NULL, "|\n\r");
             while (vl==NULL && strcmp(server_id,"EOF") != 0 && server_id != NULL) {
-                vl = getValueList(server_index, server_id, check_id, now, range, 0, opts->bucket_count, opts->bucket_size, opts->buckets);
+                vl = getValueList(server_index, server_id, graph_id, now, range, 0, opts->bucket_count, opts->bucket_size, opts->buckets);
                 server_id = strtok(NULL, "|\n\r");
             }
         }
@@ -193,7 +193,7 @@ char* parseCommand(char *buf, time_t now, server_t *server_index, vlopts_t *opts
                 char tmp_str[50];
                 // Walk through the list of requested servers and build our data list.
                 while (strcmp(server_id,"EOF") != 0 && server_id != NULL) {
-                    valueList_t *vl2 = getValueList(server_index, server_id, check_id, now, range, 0, opts->bucket_count, opts->bucket_size, opts->buckets);
+                    valueList_t *vl2 = getValueList(server_index, server_id, graph_id, now, range, 0, opts->bucket_count, opts->bucket_size, opts->buckets);
                     if (vl2 != NULL && vl2->size == vl->size && vl2->step == vl->step) {
                         addValueListToData(vl2, data);
                         server_count++;
@@ -239,13 +239,13 @@ char* parseCommand(char *buf, time_t now, server_t *server_index, vlopts_t *opts
         free(tmp_output_buf);
         stats->gets++;
     } else if (strcmp(command, "load") == 0) {
-        char *check_id = strtok(NULL, "|\n\r");
+        char *graph_id = strtok(NULL, "|\n\r");
         char *server_id = strtok(NULL, "|\n\r");
         char *first_s = strtok(NULL, "|\n\r");
         char *size_s = strtok(NULL, "|\n\r");
         char *step_s = strtok(NULL, "|\n\r");
 
-        if (check_id == NULL || strcmp(check_id, "EOF") == 0 || 
+        if (graph_id == NULL || strcmp(graph_id, "EOF") == 0 || 
             server_id == NULL || strcmp(server_id, "EOF") == 0 || 
             first_s == NULL || strcmp(first_s, "EOF") == 0 || 
             size_s == NULL || strcmp(size_s, "EOF") == 0 || 
@@ -258,7 +258,7 @@ char* parseCommand(char *buf, time_t now, server_t *server_index, vlopts_t *opts
         int size = atoi(size_s);
         int step = atoi(step_s);
 
-        outlog(5, "pylon.parseCommand: load|%s|%s|%d|%d|%d\n", check_id, server_id, first, size, step);
+        outlog(5, "pylon.parseCommand: load|%s|%s|%d|%d|%d\n", graph_id, server_id, first, size, step);
         double *data = malloc(size*sizeof(double));
         if (data == NULL) {
             outlog(1, "pylon.parseCommand: malloc data FAILED\n");
@@ -275,7 +275,7 @@ char* parseCommand(char *buf, time_t now, server_t *server_index, vlopts_t *opts
             }
         }
 
-        valueList_t *vl = loadData(server_index, server_id, check_id, first, size, step, data, now, opts->bucket_count, opts->buckets);
+        valueList_t *vl = loadData(server_index, server_id, graph_id, first, size, step, data, now, opts->bucket_count, opts->buckets);
         strcpy(output_buf, "OK\n");
     } else if (strcmp(command, "loglevel") == 0) {
         char *loglevel_s = strtok(NULL, "|\n\r");
@@ -329,9 +329,9 @@ char* parseCommand(char *buf, time_t now, server_t *server_index, vlopts_t *opts
         outlog(5, "pylon.parseCommand: status\n");
         char tmp_str[512];
         int server_count = getServerCount(server_index);
-        int check_count = getCheckCount(server_index);
+        int graph_count = getGraphCount(server_index);
         long int size = serverIndexSize(server_index);
-        sprintf(tmp_str, "servers=%d checks=%d size=%ld uptime=%d connections=%d commands=%d adds=%d gets=%d dumps=%d\n", server_count, check_count, size, (now - stats->start_time), stats->connections, stats->commands, stats->adds, stats->gets, stats->dumps);
+        sprintf(tmp_str, "servers=%d graphs=%d size=%ld uptime=%d connections=%d commands=%d adds=%d gets=%d dumps=%d\n", server_count, graph_count, size, (now - stats->start_time), stats->connections, stats->commands, stats->adds, stats->gets, stats->dumps);
 
         strcpy(output_buf, tmp_str);
     } else if (strcmp(command, "version") == 0) {
@@ -364,7 +364,7 @@ void dump_data(dump_config_t *dump_config) {
         unlink(dump_config->dump_file_tmp);
         dump_config->completed = time(NULL);
         dump_config->abort = 0;
-        dump_config->check = NULL;
+        dump_config->graph = NULL;
         dump_config->server = NULL;
         return;
     }
@@ -376,21 +376,21 @@ void dump_data(dump_config_t *dump_config) {
 
     if (dump_config->loading == 1) {
         // Haven't implemented this yet, but I eventually want to move the data loading
-        // to a staggered one-check-at-a-time method, rather than loading everything
+        // to a staggered one-graph-at-a-time method, rather than loading everything
         // at once at startup.
     } else {
         // Advance the current dump pointer.
-        if (dump_config->check != NULL) {
-            // We're sitting on a valid check, so move to the next one.
-            outlog(10, "pylon.dump_data: increment check pointer\n");
+        if (dump_config->graph != NULL) {
+            // We're sitting on a valid graph, so move to the next one.
+            outlog(10, "pylon.dump_data: increment graph pointer\n");
             fflush(stdout);
-            dump_config->check = dump_config->check->next;
+            dump_config->graph = dump_config->graph->next;
         }
 
-        if (dump_config->check == NULL) {
-            // Check is null, so we're either before the first one or after
+        if (dump_config->graph == NULL) {
+            // Graph is null, so we're either before the first one or after
             // the last one.
-            outlog(10, "pylon.dump_data: check pointer is null\n");
+            outlog(10, "pylon.dump_data: graph pointer is null\n");
             fflush(stdout);
             if (dump_config->server == NULL) {
                 // Server is null, so this must be our first time through.
@@ -406,16 +406,16 @@ void dump_data(dump_config_t *dump_config) {
             }
 
             if (dump_config->server != NULL) {
-                // Assuming we have a server, start with the first check.
-                outlog(10, "pylon.dump_data: server is not null, start with first check\n");
+                // Assuming we have a server, start with the first graph.
+                outlog(10, "pylon.dump_data: server is not null, start with first graph\n");
                 fflush(stdout);
-                dump_config->check = dump_config->server->check->next;
+                dump_config->graph = dump_config->server->graph->next;
             }
         } 
 
         // Process the current pointer.
         outlog(10, "pylon.dump_data: dump_config->dump_fd=%d\n", dump_config->dump_fd);
-        if (dump_config->check == NULL && dump_config->server == NULL && dump_config->dump_fd > 0) {
+        if (dump_config->graph == NULL && dump_config->server == NULL && dump_config->dump_fd > 0) {
             // Reached the end of the set.  Close the temp file, and swap it to live.
             outlog(10, "pylon.dump_data: reached the end of the set\n");
             fflush(stdout);
@@ -428,7 +428,7 @@ void dump_data(dump_config_t *dump_config) {
             rename(dump_config->dump_file_tmp, dump_config->dump_file);
             dump_config->completed = time(NULL);
             return;
-        } else if (dump_config->check != NULL && dump_config->server != NULL) {
+        } else if (dump_config->graph != NULL && dump_config->server != NULL) {
             outlog(10, "pylon.dump_data: sitting on a valid entry\n");
             fflush(stdout);
             if (dump_config->dump_fd < 1) {
@@ -454,23 +454,23 @@ void dump_data(dump_config_t *dump_config) {
                     }
                 }
             }
-            // Dump the current check to the temp file.
-            dump_config->checkdump[0] = 0;
+            // Dump the current graph to the temp file.
+            dump_config->graphdump[0] = 0;
 
-            outlog(10, "pylon.dump_data: collecting %s/%s. buffer size: %d\n", dump_config->server->name, dump_config->check->name, (BUFLEN*sizeof(u_char)));
+            outlog(10, "pylon.dump_data: collecting %s/%s. buffer size: %d\n", dump_config->server->name, dump_config->graph->name, (BUFLEN*sizeof(u_char)));
             fflush(stdout);
-            dumpCheck(dump_config->check, dump_config->server->name, dump_config->now, dump_config->checkdump);
+            dumpGraph(dump_config->graph, dump_config->server->name, dump_config->now, dump_config->graphdump);
             fflush(stdout);
             outlog(10, "pylon.dump_data: writing to dump file %s\n", dump_config->dump_file_tmp);
             fflush(stdout);
             int ret;
-            ret = write(dump_config->dump_fd, dump_config->checkdump, strlen(dump_config->checkdump));
+            ret = write(dump_config->dump_fd, dump_config->graphdump, strlen(dump_config->graphdump));
             if (ret < 0) {
                 outlog(10, "pylon.dump_data: error writing to %s: %d\n", dump_config->dump_file_tmp, ret);
                 fflush(stdout);
                 exit(-1);
-            } else if ( ret < strlen(dump_config->checkdump)) {
-                outlog(10, "pylon.dump_data: only wrote %d bytes to %s, should have written %d\n", ret, dump_config->dump_file_tmp, strlen(dump_config->checkdump));
+            } else if ( ret < strlen(dump_config->graphdump)) {
+                outlog(10, "pylon.dump_data: only wrote %d bytes to %s, should have written %d\n", ret, dump_config->dump_file_tmp, strlen(dump_config->graphdump));
                 fflush(stdout);
                 exit(-1);
             }
@@ -489,9 +489,9 @@ void dump_data(dump_config_t *dump_config) {
 void load_data(dump_config_t *dump_config, time_t now, vlopts_t *opts) {
     int i;
     dump_config->dump_file_tmp = malloc(sizeof(u_char) * (strlen(dump_config->dump_file) + 5));
-    dump_config->checkdump = malloc(BUFLEN*sizeof(u_char));
-    if (dump_config->checkdump == NULL) {
-        outlog(10, "malloc pylon main dump_config->checkdump FAILED\n");
+    dump_config->graphdump = malloc(BUFLEN*sizeof(u_char));
+    if (dump_config->graphdump == NULL) {
+        outlog(10, "malloc pylon main dump_config->graphdump FAILED\n");
         fflush(stdout);
         exit(-1);
     }
@@ -525,7 +525,7 @@ void load_data(dump_config_t *dump_config, time_t now, vlopts_t *opts) {
                 pos[0] = 0;
                 strcat(output_buf, read_buf_tmp);
 
-                char *check_id = strtok(output_buf, "|\n\r");
+                char *graph_id = strtok(output_buf, "|\n\r");
                 char *server_id = strtok(NULL, "|\n\r");
                 char *first_s = strtok(NULL, "|\n\r");
                 char *size_s = strtok(NULL, "|\n\r");
@@ -551,8 +551,8 @@ void load_data(dump_config_t *dump_config, time_t now, vlopts_t *opts) {
                     }
                 }
 
-                if (server_id != NULL && check_id != NULL && size > 0 && step > 0) {
-                    loadData(dump_config->server_index, server_id, check_id, first, size, step, data, now, opts->bucket_count, opts->buckets);
+                if (server_id != NULL && graph_id != NULL && size > 0 && step > 0) {
+                    loadData(dump_config->server_index, server_id, graph_id, first, size, step, data, now, opts->bucket_count, opts->buckets);
                     load_count++;
                 } else {
                     free(data);
@@ -568,7 +568,7 @@ void load_data(dump_config_t *dump_config, time_t now, vlopts_t *opts) {
         free(output_buf);
         outlog(10, "finished loading data from %s: %d\n", dump_config->dump_file, load_end);
         if (load_end > load_start) {
-            outlog(10, "load time: %d seconds, %d checks, %.2f records/sec\n", (load_end - load_start), (load_count/4), ((load_count/4)/(load_end-load_start)));
+            outlog(10, "load time: %d seconds, %d graphs, %.2f records/sec\n", (load_end - load_start), (load_count/4), ((load_count/4)/(load_end-load_start)));
         }
         dump_config->loading = 0;
     }

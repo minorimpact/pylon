@@ -16,5 +16,5 @@ void addValue(valueList_t *vl, double value, time_t now, int type);
 void loadValueList(valueList_t *vl, time_t first, int size, int step, double *data);
 void getValueListData(valueList_t *vl, double *data);
 time_t makeValueListCurrent(valueList_t *vl, time_t now);
-void dumpValueList(char *check, char *server, valueList_t *vl, time_t now, char *output_buf);
+void dumpValueList(char *graph, char *server, valueList_t *vl, time_t now, char *output_buf);
 

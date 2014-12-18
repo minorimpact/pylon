@@ -63,7 +63,7 @@ sub main {
     foreach my $pos (1..$size) {
         push (@test, $pos*10);
     }
-    my $load_string = "load|check1|server1|$start_time{$step}|$size|$step|" . join("|", @test);
+    my $load_string = "load|graph1|server1|$start_time{$step}|$size|$step|" . join("|", @test);
     print "loading test data\n";
     $result = $pylon->command($load_string);
     print $result;
@@ -75,25 +75,25 @@ sub main {
     if ($result =~/servers=1/) { print "OK\n"; } 
     else { die("FAIL\n"); }
 
-    print "validating check list.\n";
-    $result = $pylon->command("checks|server1");
+    print "validating graph list.\n";
+    $result = $pylon->command("graphs|server1");
     print $result if ($debug);
-    if ($result eq "check1\n") { print "OK\n"; } 
+    if ($result eq "graph1\n") { print "OK\n"; } 
     else { die("FAIL\n"); }
 
     print "dumping and validating test data\n";
-    $result = $pylon->command("dump|check1|server1");
+    $result = $pylon->command("dump|graph1|server1");
     print $result if ($debug);
     if ($result =~/$size\|$step\|$test[0]\.0+\|.*\|$test[$size-1]\.0+/) { print "OK\n"; } 
     else { die("FAIL\n")}
 
     print "adding a single value: $add_value1\n";
-    $result = $pylon->command("add|check1|server1|$add_value1");
+    $result = $pylon->command("add|graph1|server1|$add_value1");
     if ($result =~/OK/) { print "OK\n"; } 
     else { die("FAIL\n")}
 
     print "dumping and validating test data\n";
-    $result = $pylon->command("dump|check1|server1");
+    $result = $pylon->command("dump|graph1|server1");
     print $result if ($debug);
     if ($result =~/$size\|$step\|$test[1]\.0+\|.*\|$test[$size-1]\.0+\|$add_value1\.0+/) { print "OK\n"; } 
     else { die("FAIL\n"); }
@@ -102,12 +102,12 @@ sub main {
     $start_time{$step} += $step;
 
     print "adding a single value: $add_value2\n";
-    $result = $pylon->command("add|check1|server1|$add_value2");
+    $result = $pylon->command("add|graph1|server1|$add_value2");
     print $result;
     unless ($result =~/OK/) { die("FAIL\n"); }
 
     print "dumping and validating test data\n";
-    $result = $pylon->command("dump|check1|server1");
+    $result = $pylon->command("dump|graph1|server1");
     print $result if ($debug);
     if ($result =~/$size\|$step\|$test[2]\.0+\|.*\|$test[$size-1]\.0+\|$add_value1\.0+\|$add_value2\.0+/) { print "OK\n"; } 
     else { die("FAIL\n"); }
@@ -120,7 +120,7 @@ sub main {
     unless ($result =~/OK/) { die("FAIL\n"); } 
 
     print "dumping and validating test data\n";
-    $result = $pylon->command("dump|check1|server2");
+    $result = $pylon->command("dump|graph1|server2");
     print $result if ($debug);
     if ($result =~/$size\|$step\|.*\|5755\.0+\|5765\.0+/) { print "OK\n"; } 
     else { die("FAIL\n"); }
@@ -132,13 +132,13 @@ sub main {
     else { die("FAIL\n"); }
 
     print "getting data for multiple servers\n";
-    $result = $pylon->command("get|check1|$start_time{$step}|server1|server2");
+    $result = $pylon->command("get|graph1|$start_time{$step}|server1|server2");
     print $result if ($debug);
     if ($result =~/\|$size\|$step\|.*\|11500\.0+\|11510\.0+\|11530\.0+/) { print "OK\n"; }
     else { die("FAIL\n"); }
 
     print "getting average data for multiple servers\n";
-    $result = $pylon->command("avg|check1|$start_time{$step}|server1|server2");
+    $result = $pylon->command("avg|graph1|$start_time{$step}|server1|server2");
     print $result if ($debug);
     if ($result =~/$size\|$step\|.*\|5755\.0+\|5765\.0+/) { print "OK\n"; } 
     else { die("FAIL\n"); }
@@ -159,14 +159,14 @@ sub main {
             push (@{$data->{$step}}, $rand);
         }
         $start_time{$step} = time() - ($now % $step) - (($size) * $step);
-        my $load_string = "load|check1|server1|$start_time{$step}|$size|$step|" . join("|", @{$data->{$step}});
+        my $load_string = "load|graph1|server1|$start_time{$step}|$size|$step|" . join("|", @{$data->{$step}});
         $result = $pylon->command($load_string);
         print $result;
         unless ($result =~/OK/) { die("FAIL\n"); } 
     }
 
     foreach my $step (@steps) {
-        my $get_string = "get|check1|" . ($start_time{$step} - $step) . "|server1";
+        my $get_string = "get|graph1|" . ($start_time{$step} - $step) . "|server1";
         $result = $pylon->command($get_string);
         print "$result" if ($debug);
         my @rdata = split(/\|/,$result);
@@ -203,7 +203,7 @@ sub main {
     $now = time();
     foreach my $step (@steps) {
         my $start_time = time() - ($now % $step) - ($size * $step) - $step;
-        my $get_string = "get|check1|$start_time|server1";
+        my $get_string = "get|graph1|$start_time|server1";
         $result = $pylon->command($get_string);
         print "$result" if ($debug);
         chomp($result);
@@ -241,7 +241,7 @@ sub main {
     print "OK\n";
 
     print "Adding test server data\n";
-    $pylon->command("add|check1|server1|$cleanup_time");
+    $pylon->command("add|graph1|server1|$cleanup_time");
     print "checking status\n";
     $result = $pylon->command("status");
     print $result;

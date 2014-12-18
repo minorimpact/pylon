@@ -1,4 +1,4 @@
-#include "servercheck.h"
+#include "servergraph.h"
 
 /* Port to listen on. */
 #define SERVER_PORT 5555
@@ -6,7 +6,7 @@
 #define BUCKET_SIZE 575
 #define CLEANUP_TIMEOUT 300.
 #define DUMP_INTERVAL 10
-#define VERSION "0.0.0-31"
+#define VERSION "0.0.0-32"
 
 /* Length of each buffer in the buffer queue.  Also becomes the amount
  * of data we try to read per call to read(2). */
@@ -25,12 +25,12 @@ typedef struct stats {
 typedef struct dump_config {
     char *dump_file;
     char *dump_file_tmp;
-    char *checkdump;
+    char *graphdump;
     int dump_interval;
     int dump_fd;
     int loading;
     server_t *server;
-    check_t *check;
+    graph_t *graph;
     server_t *server_index;
     time_t now;
     time_t completed;

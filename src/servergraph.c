@@ -4,7 +4,7 @@
 #include <string.h>
 #include <time.h>
 #include <sys/types.h>
-#include "servercheck.h"
+#include "servergraph.h"
 
 int cleanupServerIndex(server_t *server_index, time_t now, int cleanup) {
     server_t *last_server = server_index;
@@ -12,23 +12,23 @@ int cleanupServerIndex(server_t *server_index, time_t now, int cleanup) {
     time_t cutoff = now - cleanup;
     int change = 0;
 
-    outlog(7, "servercheck.cleanupServerIndex: start\n");
+    outlog(7, "servergraph.cleanupServerIndex: start\n");
     while(server != NULL) {
-        check_t *last_check = server->check;
-        check_t *check = server->check->next;
-        while(check != NULL) {
-            valueList_t *vl = check->vl->next;
+        graph_t *last_graph = server->graph;
+        graph_t *graph = server->graph->next;
+        while(graph != NULL) {
+            valueList_t *vl = graph->vl->next;
             if (vl->update_time < cutoff) {
-                last_check->next = check->next;
-                deleteCheck(check);
-                check = last_check->next;
+                last_graph->next = graph->next;
+                deleteGraph(graph);
+                graph = last_graph->next;
                 change++;
             } else {
-                check = check->next;
+                graph = graph->next;
             }
         }
 
-        if (server->check->next == NULL) {
+        if (server->graph->next == NULL) {
             last_server->next = server->next;
             deleteServer(server);
             server = last_server->next;
@@ -54,21 +54,21 @@ server_t *getServerByName(server_t *server_index, char *server_id, int force) {
     if (force > 0 && strlen(server_id) < 52) {
         server = malloc(sizeof(server_t));
         if (server == NULL) {
-            outlog(1, "servercheck.getServerByName: malloc server FAILED\n");
+            outlog(1, "servergraph.getServerByName: malloc server FAILED\n");
             exit(-1);
         }
         server->name = malloc((strlen(server_id) + 1) * sizeof(char));
         if (server->name == NULL) {
-            outlog(1, "servercheck.getServerByName: malloc server->name FAILED\n");
+            outlog(1, "servergraph.getServerByName: malloc server->name FAILED\n");
             exit(-1);
         }
         strcpy(server->name, server_id);
-        server->check = malloc(sizeof(check_t));
-        if (server->check == NULL) {
-            outlog(1, "servercheck.getServerByName: malloc server->check FAILED\n");
+        server->graph = malloc(sizeof(graph_t));
+        if (server->graph == NULL) {
+            outlog(1, "servergraph.getServerByName: malloc server->graph FAILED\n");
             exit(-1);
         }
-        server->check->next = NULL;
+        server->graph->next = NULL;
 
         server->next = server_index->next;
         server_index->next = server;
@@ -77,44 +77,44 @@ server_t *getServerByName(server_t *server_index, char *server_id, int force) {
     return server;
 }
 
-check_t *getServerCheckByName(server_t *server_index, char *server_id, char *check_id, int force) {
-    outlog(7, "servercheck.getServerCheckByName: start\n");
+graph_t *getServerGraphByName(server_t *server_index, char *server_id, char *graph_id, int force) {
+    outlog(7, "servergraph.getServerGraphByName: start\n");
     server_t *server = getServerByName(server_index, server_id, force);
     if (server == NULL) {
         return NULL;
     }
 
-    check_t *check = server->check->next;
-    while(check != NULL) {
-        if (strcmp(check->name, check_id) == 0) {
-            return check;
+    graph_t *graph = server->graph->next;
+    while(graph != NULL) {
+        if (strcmp(graph->name, graph_id) == 0) {
+            return graph;
         }
-        check = check->next;
+        graph = graph->next;
     }
 
     if (force > 0 && strlen(server_id) <=52) {
-        check = malloc(sizeof(check_t));
-        if (check == NULL) {
-            outlog(1, "servercheck.getServerCheckByName: malloc check FAILED\n");
+        graph = malloc(sizeof(graph_t));
+        if (graph == NULL) {
+            outlog(1, "servergraph.getServerGraphByName: malloc graph FAILED\n");
             exit(-1);
         }
-        check->name = malloc((strlen(check_id)+1) * sizeof(char));
-        if (check->name == NULL) {
-            outlog(1, "servercheck.getServerCheckByName: malloc check->name FAILED\n");
+        graph->name = malloc((strlen(graph_id)+1) * sizeof(char));
+        if (graph->name == NULL) {
+            outlog(1, "servergraph.getServerGraphByName: malloc graph->name FAILED\n");
             exit(-1);
         }
-        strcpy(check->name, check_id);
-        check->vl = malloc(sizeof(valueList_t));
-        if (check->vl == NULL) {
-            outlog(1, "servercheck.getServerCheckByName: malloc check->vl FAILED\n");
+        strcpy(graph->name, graph_id);
+        graph->vl = malloc(sizeof(valueList_t));
+        if (graph->vl == NULL) {
+            outlog(1, "servergraph.getServerGraphByName: malloc graph->vl FAILED\n");
             exit(-1);
         }
-        check->vl->next = NULL;
-        check->next = server->check->next;
-        server->check->next = check;
+        graph->vl->next = NULL;
+        graph->next = server->graph->next;
+        server->graph->next = graph;
     }
 
-    return check;
+    return graph;
 }
 
 int getServerCount(server_t *server_index) {
@@ -128,15 +128,15 @@ int getServerCount(server_t *server_index) {
     return count;
 }
 
-int getCheckCount(server_t *server_index) {
+int getGraphCount(server_t *server_index) {
     int count = 0;
     server_t *server = server_index->next;
 
     while(server != NULL) {
-        check_t *check = server->check->next;
-        while(check != NULL) {
+        graph_t *graph = server->graph->next;
+        while(graph != NULL) {
             count++;
-            check = check->next;
+            graph = graph->next;
         }
         server = server->next;
     }
@@ -150,17 +150,17 @@ long int serverIndexSize(server_t *server_index) {
     while(server != NULL) {
         size += sizeof(server_t);
         size += strlen(server->name);
-        size += sizeof(check_t);
-        check_t *check = server->check->next;
-        while(check != NULL) {
-            size += sizeof(check_t);
-            size += strlen(check->name);
-            valueList_t *vl = check->vl->next;
+        size += sizeof(graph_t);
+        graph_t *graph = server->graph->next;
+        while(graph != NULL) {
+            size += sizeof(graph_t);
+            size += strlen(graph->name);
+            valueList_t *vl = graph->vl->next;
             while (vl != NULL) {
                 size += (sizeof(double) * vl->size);
                 vl = vl->next;
             }
-            check = check->next;
+            graph = graph->next;
         }
         server = server->next;
     }
@@ -181,10 +181,10 @@ char *getServerList(server_t *server_index) {
 
     char *tmp_str = malloc((server_size + 1) * sizeof(char));
     if (tmp_str == NULL) {
-        outlog(1, "servercheck.getServerList: malloc tmp_str FAILED\n");
+        outlog(1, "servergraph.getServerList: malloc tmp_str FAILED\n");
         exit(-1);
     }
-    outlog(10, "servercheck.getServerList: malloc tmp_str %p\n", tmp_str);
+    outlog(10, "servergraph.getServerList: malloc tmp_str %p\n", tmp_str);
     tmp_str[0] = 0;
 
     server = server_index->next;
@@ -200,37 +200,37 @@ char *getServerList(server_t *server_index) {
     return tmp_str;
 }
 
-char *getCheckList(server_t *server_index, char *server_id) {
+char *getGraphList(server_t *server_index, char *server_id) {
      server_t *server = getServerByName(server_index, server_id, 0);
 
     if (server == NULL) {
         return NULL;
     }
    
-    check_t *check = server->check->next;
-    if (check == NULL) {
+    graph_t *graph = server->graph->next;
+    if (graph == NULL) {
         return NULL;
     }
 
-    int check_size = 0;
-    while(check != NULL) {
-        check_size += (strlen(check->name) + 1);
-        check = check->next;
+    int graph_size = 0;
+    while(graph != NULL) {
+        graph_size += (strlen(graph->name) + 1);
+        graph = graph->next;
     }
 
-    if (check_size > 0) {
-        char *tmp_str = malloc(sizeof(char) * (check_size+1));
+    if (graph_size > 0) {
+        char *tmp_str = malloc(sizeof(char) * (graph_size+1));
         if (tmp_str == NULL) {
-            outlog(1, "servercheck.getServerCheckList: malloc tmp_str FAILED\n");
+            outlog(1, "servergraph.getServerGraphList: malloc tmp_str FAILED\n");
             exit(-1);
         }
-        outlog(10, "servercheck.getServerCheckList: malloc tmp_str %p\n", tmp_str);
+        outlog(10, "servergraph.getServerGraphList: malloc tmp_str %p\n", tmp_str);
         tmp_str[0] = 0;
-        check = server->check->next;
-        while(check != NULL) {
-            strcat(tmp_str, check->name);
+        graph = server->graph->next;
+        while(graph != NULL) {
+            strcat(tmp_str, graph->name);
             strcat(tmp_str, "|");
-            check = check->next;
+            graph = graph->next;
         }
         // Cut the trailing pipe.
         if (strlen(tmp_str) > 0) {
@@ -241,23 +241,23 @@ char *getCheckList(server_t *server_index, char *server_id) {
     return NULL;
 }
 
-valueList_t *getValueList(server_t *server_index, char *server_id, char *check_id, time_t now, int range, int force, int bucket_count, int size, int *steps) {
-    check_t *check = getServerCheckByName(server_index, server_id, check_id, force);
+valueList_t *getValueList(server_t *server_index, char *server_id, char *graph_id, time_t now, int range, int force, int bucket_count, int size, int *steps) {
+    graph_t *graph = getServerGraphByName(server_index, server_id, graph_id, force);
 
-    if (check == NULL) {
+    if (graph == NULL) {
         return NULL;
     }
 
-    valueList_t *vl = check->vl->next;
+    valueList_t *vl = graph->vl->next;
     if (vl == NULL && force > 0) {
-        valueList_t *last_vl = check->vl;
+        valueList_t *last_vl = graph->vl;
         int i;
         for (i=0; i < bucket_count; i++) {
             valueList_t *vl2 = newValueList(size, steps[i], now);
             last_vl->next = vl2;
             last_vl = vl2;
         }
-        vl = check->vl->next;
+        vl = graph->vl->next;
     } else if (vl != NULL) {
         makeValueListCurrent(vl, now);
     }
@@ -278,35 +278,35 @@ valueList_t *getValueList(server_t *server_index, char *server_id, char *check_i
 }
 
 void deleteServer(server_t *server) {
-    outlog(7, "servercheck.deleteServer: start %s\n", server->name);
-    if (server->check->next != NULL) {
-        check_t *check = server->check->next;
-        while(check != NULL) {
-            check_t *next = check->next;
-            deleteCheck(check);
-            check = next;
+    outlog(7, "servergraph.deleteServer: start %s\n", server->name);
+    if (server->graph->next != NULL) {
+        graph_t *graph = server->graph->next;
+        while(graph != NULL) {
+            graph_t *next = graph->next;
+            deleteGraph(graph);
+            graph = next;
         }
     }
-    free(server->check);
+    free(server->graph);
     free(server->name);
     free(server);
 }
 
-void deleteCheck(check_t *check) {
-    outlog(7, "servercheck.deleteCheck: start %s\n", check->name);
-    valueList_t *vl = check->vl->next;
+void deleteGraph(graph_t *graph) {
+    outlog(7, "servergraph.deleteGraph: start %s\n", graph->name);
+    valueList_t *vl = graph->vl->next;
     while (vl != NULL) {
         valueList_t *next = vl->next; 
         deleteValueList(vl);
         vl = next;
     }
-    free(check->name);
-    free(check->vl);
-    free(check);
+    free(graph->name);
+    free(graph->vl);
+    free(graph);
 }
 
 void deleteServerByName(server_t *server_index, char *server_id) {
-    outlog(7, "servercheck.deleteServerByName: start\n");
+    outlog(7, "servergraph.deleteServerByName: start\n");
     server_t *server = server_index->next;
     server_t *prev = server_index;
 
@@ -323,11 +323,11 @@ void deleteServerByName(server_t *server_index, char *server_id) {
         return;
     }
 
-    check_t *check = server->check->next;
+    graph_t *graph = server->graph->next;
 
-    while(check != NULL) {
-        check_t *next = check->next;
-        deleteCheck(check);
+    while(graph != NULL) {
+        graph_t *next = graph->next;
+        deleteGraph(graph);
     }
 
     if (prev) {
@@ -338,10 +338,10 @@ void deleteServerByName(server_t *server_index, char *server_id) {
 }
 
 server_t *newServerIndex() {
-    outlog(7, "servercheck.newServerIndex: start\n");
+    outlog(7, "servergraph.newServerIndex: start\n");
     server_t *server_index = malloc(sizeof(server_t));
     if (server_index == NULL) {
-        outlog(1, "servercheck.newServerIndex: malloc server_index FAILED\n");
+        outlog(1, "servergraph.newServerIndex: malloc server_index FAILED\n");
         exit(-1);
     }
     server_index->name = NULL;
@@ -349,25 +349,25 @@ server_t *newServerIndex() {
     return server_index;
 }
 
-valueList_t *loadData(server_t *server_index, char *server_id, char *check_id, time_t first, int size, int step, double* data, time_t now, int bucket_count, int *steps ) {
-    // Get the first valuelist for this server/check.  If none exist, create a default.
-    outlog(7, "servercheck.loadData: start server_id=%s,check_id=%s,size=%d,step=%d\n",server_id, check_id, size, step);
-    check_t *check = getServerCheckByName(server_index, server_id, check_id, 1);
-    valueList_t *vl = check->vl->next;
+valueList_t *loadData(server_t *server_index, char *server_id, char *graph_id, time_t first, int size, int step, double* data, time_t now, int bucket_count, int *steps ) {
+    // Get the first valuelist for this server/graph.  If none exist, create a default.
+    outlog(7, "servergraph.loadData: start server_id=%s,graph_id=%s,size=%d,step=%d\n",server_id, graph_id, size, step);
+    graph_t *graph = getServerGraphByName(server_index, server_id, graph_id, 1);
+    valueList_t *vl = graph->vl->next;
     if (vl == NULL) {
-        valueList_t *last_vl = check->vl;
+        valueList_t *last_vl = graph->vl;
         int i;
         for (i=0; i < bucket_count; i++) {
             valueList_t *vl2 = newValueList(size, steps[i], now);
             last_vl->next = vl2;
             last_vl = vl2;
         }
-        vl = check->vl->next;
+        vl = graph->vl->next;
 
-        check->vl->next = vl;
+        graph->vl->next = vl;
     }
 
-    valueList_t *last_vl = check->vl;
+    valueList_t *last_vl = graph->vl;
 
     while (vl != NULL) {
         if (step == vl->step) {
@@ -400,21 +400,21 @@ valueList_t *loadData(server_t *server_index, char *server_id, char *check_id, t
     return vl;
 }
 
-void dumpCheck(check_t *check, char *servername, time_t now, char *output_buf) {
-    valueList_t *vl = check->vl->next;
+void dumpGraph(graph_t *graph, char *servername, time_t now, char *output_buf) {
+    valueList_t *vl = graph->vl->next;
     while (vl != NULL) {
-        outlog(8, "servercheck.dumpCheck: strlen (%s/%s) output_buf %d\n", check->name, servername, strlen(output_buf));
-        dumpValueList(check->name, servername, vl, now, output_buf);
+        outlog(8, "servergraph.dumpGraph: strlen (%s/%s) output_buf %d\n", graph->name, servername, strlen(output_buf));
+        dumpValueList(graph->name, servername, vl, now, output_buf);
         vl = vl->next;
     }
 }
 
 void dumpServer(server_t *server, time_t now, char *output_buf) {
-    outlog(7, "servercheck.dumpServer: start\n");
-    check_t *check = server->check->next;
-    while (check != NULL) {
-        dumpCheck(check, server->name, now, output_buf);
-        check = check->next;
+    outlog(7, "servergraph.dumpServer: start\n");
+    graph_t *graph = server->graph->next;
+    while (graph != NULL) {
+        dumpGraph(graph, server->name, now, output_buf);
+        graph = graph->next;
     }
 }
 
