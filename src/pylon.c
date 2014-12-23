@@ -330,9 +330,28 @@ char* parseCommand(char *buf, time_t now, server_t *server_index, vlopts_t *opts
 
         tmp_str = getServerList(server_index);
         if (tmp_str != NULL) {
-            strcpy(output_buf, tmp_str);
-            outlog(10, "pylon.parseCommand: free tmp_str-2 %p\n", tmp_str);
+            int strpos = 0;
+            for (i=0; i <= strlen(tmp_str); i++) {
+                if (*(tmp_str+i) == '|' || i == strlen(tmp_str)) {
+                    int newlen = i - strpos;
+                    strncat(output_buf,tmp_str + strpos,newlen);
+                    output_buf[i] = '|';
+                    output_buf[i+1] = 0;
+                    i++;
+                    strpos = i;
+
+                    if (strlen(output_buf) > ((BUFLEN) * 0.95)) {
+                        outlog(2, "pylon.parseCommand: server list too large\n");
+                        break;
+                    }
+                }
+            }
+            outlog(10, "pylon.parseCommand: free tmp_str %p\n", tmp_str);
             free(tmp_str);
+            if (strlen(output_buf) > 0) {
+                // remove the trailing pipe
+                output_buf[strlen(output_buf) - 1] = 0;
+            }
         }
         strcat(output_buf, "\n");
     } else if (strcmp(command, "status") == 0) {
