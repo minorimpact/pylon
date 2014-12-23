@@ -16,13 +16,14 @@ my $slope = 1;
 my $rand_max = 1000;
 
 my $options = {};
-my $rc = GetOptions($options, qw/debug help host=s procs=s verbose/);
+my $rc = GetOptions($options, qw/debug help host=s noload procs=s verbose/);
 
 if (! $rc || $options->{help}) {
     print "Usage: $0 <options/values>\n";
     print "  --debug      Turn debugging output ON.\n";
     print "  --help       this screen\n";
     print "  --host       pylon server to connect to\n";
+    print "  --noload\n";
     print "  --procs      how many processes to fork for testing\n";
     print "  --verbose    turn on debugging\n";
     return;
@@ -33,6 +34,7 @@ my $debug = $options->{debug} || 0;
 my $verbose = $options->{verbose} || $debug || 0;
 my $procs = $options->{procs} || 5;
 my $host = $options->{host} || '';
+my $noload = $options->{noload};
 
 main();
 
@@ -48,21 +50,23 @@ sub main {
         my $proc_id = $i;
         my $pid = fork();
         unless ($pid) {
-            my $now = time();
-            foreach my $server_num (1 .. $MAX_SERVERS) {
-                foreach my $graph_num (1 .. $MAX_GRAPHS) {
-                    my @data = ();
-                    foreach my $pos (1..$size) {
-                        my $rand = getRand();
-                        push (@data, $rand);
+            unless ($noload) {
+                my $now = time();
+                foreach my $server_num (1 .. $MAX_SERVERS) {
+                    foreach my $graph_num (1 .. $MAX_GRAPHS) {
+                        my @data = ();
+                        foreach my $pos (1..$size) {
+                            my $rand = getRand();
+                            push (@data, $rand);
+                        }
+                        my $start_time = time() - ($now % $step) - (($size) * $step);
+                        my $load_string = "load|graph-$graph_num|$hostname-$proc_id-$server_num|$start_time|$size|$step|" . join("|", @data);
+                        $result = $pylon->command($load_string);
+                        exit unless (parentIsAlive());
+                        last if (((time() % $step) == 0 && time() > $now) || !parentIsAlive());
                     }
-                    my $start_time = time() - ($now % $step) - (($size) * $step);
-                    my $load_string = "load|graph-$graph_num|$hostname-$proc_id-$server_num|$start_time|$size|$step|" . join("|", @data);
-                    $result = $pylon->command($load_string);
-                    exit unless (parentIsAlive());
                     last if (((time() % $step) == 0 && time() > $now) || !parentIsAlive());
                 }
-                last if (((time() % $step) == 0 && time() > $now) || !parentIsAlive());
             }
 
             while(parentIsAlive()) {
@@ -80,6 +84,7 @@ sub main {
             exit;
         }
     }
+
     my $last_connections = 0;
     my $last_time = 0;
     my $last_output = '';
