@@ -65,7 +65,7 @@ char* parseCommand(char *buf, time_t now, server_t *server_index, vlopts_t *opts
             strcpy(output_buf, "INVALID\n");
         }
         stats->adds++;
-    } else if (strcmp(command, "graphs") == 0) {
+    } else if (strcmp(command, "graphs") == 0 || strcmp(command, "checks") == 0) {
         char *server_id = strtok(NULL, "|\n\r");
         char tmp2[1024];
 
