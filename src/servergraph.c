@@ -236,6 +236,7 @@ char *getGraphList(server_t *server_index, char *server_id) {
         if (strlen(tmp_str) > 0) {
             tmp_str[strlen(tmp_str) - 1] = 0;
         }
+        outlog(10, "servergraph.getServerGraphList: graph_size = %d, strlen(tmp_str) = %d\n", graph_size, strlen(tmp_str));
         return tmp_str;
     }
     return NULL;

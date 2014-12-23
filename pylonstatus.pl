@@ -3,5 +3,5 @@
 use Pylon;
 
 my $pylon = new Pylon;
-print $pylon->command("status");
+print $pylon->command("status") . "\n";
 

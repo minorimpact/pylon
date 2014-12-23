@@ -30,11 +30,11 @@ char* parseCommand(char *buf, time_t now, server_t *server_index, vlopts_t *opts
     if (tmp == NULL) {
         tmp = calloc((len+1), sizeof(u_char));
         if (tmp == NULL) {
-            outlog(1, "pylon.parseCommand: malloc tmp-2 FAILED\n");
+            outlog(1, "pylon.parseCommand: malloc tmp FAILED\n");
             fflush(stdout);
             exit(-1);
         }
-        outlog(10, "pylon.parseCommand: malloc tmp-2 %p\n", tmp);
+        outlog(10, "pylon.parseCommand: malloc tmp %p\n", tmp);
         strcpy(tmp, buf);
     }
 
@@ -65,37 +65,6 @@ char* parseCommand(char *buf, time_t now, server_t *server_index, vlopts_t *opts
             strcpy(output_buf, "INVALID\n");
         }
         stats->adds++;
-    } else if (strcmp(command, "graphs") == 0 || strcmp(command, "checks") == 0) {
-        char *server_id = strtok(NULL, "|\n\r");
-        char tmp2[1024];
-
-        outlog(5, "pylon.parseCommand: graphs|%s\n", server_id);
-
-        while (server_id != NULL && strcmp(server_id,"EOF") != 0) {
-            int i;
-            char *tmp_str = getGraphList(server_index, server_id);
-            if (tmp_str != NULL) {
-                int strpos = 0;
-                for (i=0; i <= strlen(tmp_str); i++) {
-                    if (*(tmp_str+i) == '|' || i == strlen(tmp_str)) {
-                        int newlen = i - strpos;
-                        strncpy(tmp2,tmp_str + strpos,newlen);
-                        tmp2[newlen] = '|';
-                        tmp2[newlen+1] = 0;
-                        if (strstr(output_buf, tmp2) == NULL) {
-                            strcat(output_buf, tmp2);
-                        }
-                        i++;
-                        strpos = i;
-                    }
-                }
-                outlog(10, "pylon.parseCommand: free tmp_str-1 %p\n", tmp_str);
-                free(tmp_str);
-            }
-            server_id = strtok(NULL, "|\n\r");
-        }
-        output_buf[strlen(output_buf) - 1] = 0;
-        strcat(output_buf,"\n");
     } else if (strcmp(command, "cleanup") == 0) {
         char *cleanup_s = strtok(NULL, "|\n\r");
 
@@ -238,6 +207,47 @@ char* parseCommand(char *buf, time_t now, server_t *server_index, vlopts_t *opts
         outlog(10, "pylon.parseCommand: free tmp_output_buf %p\n", tmp_output_buf);
         free(tmp_output_buf);
         stats->gets++;
+    } else if (strcmp(command, "graphs") == 0 || strcmp(command, "checks") == 0) {
+        char *server_id = strtok(NULL, "|\n\r");
+        char tmp2[1024];
+
+        outlog(5, "pylon.parseCommand: graphs|%s\n", server_id);
+
+        while (server_id != NULL && strcmp(server_id,"EOF") != 0) {
+            int i;
+            char *tmp_str = getGraphList(server_index, server_id);
+            if (tmp_str != NULL) {
+                int strpos = 0;
+                for (i=0; i <= strlen(tmp_str); i++) {
+                    if (*(tmp_str+i) == '|' || i == strlen(tmp_str)) {
+                        int newlen = i - strpos;
+                        strncpy(tmp2,tmp_str + strpos,newlen);
+                        tmp2[newlen] = '|';
+                        tmp2[newlen+1] = 0;
+                        if (strstr(output_buf, tmp2) == NULL) {
+                            strcat(output_buf, tmp2);
+                        }
+                        i++;
+                        strpos = i;
+
+                        if (strlen(output_buf) > ((BUFLEN) * 0.95)) {
+                            break;
+                        }
+                    }
+                }
+                outlog(10, "pylon.parseCommand: free tmp_str %p\n", tmp_str);
+                free(tmp_str);
+                if (strlen(output_buf) > ((BUFLEN) * 0.95)) {
+                    outlog(2, "pylon.parseCommand: graph list too large\n");
+                    break;
+                }
+            }
+            server_id = strtok(NULL, "|\n\r");
+        }
+        if (strlen(output_buf) > 0) {
+            output_buf[strlen(output_buf) - 1] = 0;
+        }
+        strcat(output_buf,"\n");
     } else if (strcmp(command, "load") == 0) {
         char *graph_id = strtok(NULL, "|\n\r");
         char *server_id = strtok(NULL, "|\n\r");
@@ -491,10 +501,10 @@ void load_data(dump_config_t *dump_config, time_t now, vlopts_t *opts) {
     dump_config->dump_file_tmp = malloc(sizeof(u_char) * (strlen(dump_config->dump_file) + 5));
     dump_config->graphdump = malloc(BUFLEN*sizeof(u_char));
     if (dump_config->graphdump == NULL) {
-        outlog(10, "malloc pylon main dump_config->graphdump FAILED\n");
-        fflush(stdout);
+        outlog(1, "pylon.load_data: malloc dump_config->graphdump FAILED\n");
         exit(-1);
     }
+    outlog(10, "pylon.load_data: malloc dump_config->graphdump %p\n", dump_config->graphdump);
     strcpy(dump_config->dump_file_tmp, dump_config->dump_file);
     strcat(dump_config->dump_file_tmp, ".tmp");
 
@@ -509,11 +519,10 @@ void load_data(dump_config_t *dump_config, time_t now, vlopts_t *opts) {
         char *read_buf_tmp;
         char *output_buf = malloc(BUFLEN*sizeof(u_char));
         if (output_buf == NULL) {
-            outlog(10, "malloc pylon main output_buf FAILED\n");
-            fflush(stdout);
+            outlog(1, "pylon.load_data: malloc output_buf FAILED\n");
             exit(-1);
         }
-        outlog(10, "malloc pylon main output_buf %p\n", output_buf);
+        outlog(10, "pylon.load_data: malloc output_buf %p\n", output_buf);
         output_buf[0] = 0;
         char *pos;
         int read_size;
@@ -536,8 +545,7 @@ void load_data(dump_config_t *dump_config, time_t now, vlopts_t *opts) {
 
                 double *data = malloc(size*sizeof(double));
                 if (data == NULL) {
-                    outlog(10, "malloc pylon main data FAILED\n");
-                    fflush(stdout);
+                    outlog(1, "pylon.load_data: malloc data FAILED\n");
                     exit(-1);
                 }
 
@@ -564,15 +572,14 @@ void load_data(dump_config_t *dump_config, time_t now, vlopts_t *opts) {
             strcat(output_buf, read_buf_tmp);
         }
         time_t load_end = time(NULL);
-        outlog(10, "free pylon main output_buf %p\n", output_buf);
+        outlog(10, "pylon.load_data: free output_buf %p\n", output_buf);
         free(output_buf);
-        outlog(10, "finished loading data from %s: %d\n", dump_config->dump_file, load_end);
+        outlog(3, "pylon.load_data: finished loading data from %s: %d\n", dump_config->dump_file, load_end);
         if (load_end > load_start) {
-            outlog(10, "load time: %d seconds, %d graphs, %.2f records/sec\n", (load_end - load_start), (load_count/4), ((load_count/4)/(load_end-load_start)));
+            outlog(3, "pylon.load_data: load time: %d seconds, %d graphs, %.2f records/sec\n", (load_end - load_start), (load_count/4), ((load_count/4)/(load_end-load_start)));
         }
         dump_config->loading = 0;
     }
     close(dump_fd);
-
 }
 
