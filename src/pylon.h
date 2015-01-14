@@ -10,7 +10,7 @@
 
 /* Length of each buffer in the buffer queue.  Also becomes the amount
  * of data we try to read per call to read(2). */
-#define BUFLEN (20 * BUCKET_SIZE * MAX_BUCKETS) + 150
+#define BUFLEN (((20 * BUCKET_SIZE * MAX_BUCKETS) + 150) * 2)
 
 typedef struct stats {
     int connections;

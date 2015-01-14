@@ -51,7 +51,7 @@ sub main {
     $pylon->start();
     print "checking status\n";
     $result = $pylon->command("status");
-    print $result;
+    print "$result\n";
     unless ($result =~/servers=0/) { die("FAIL\n"); } 
     $pylon->command("loglevel|10");
 
@@ -66,24 +66,24 @@ sub main {
     my $load_string = "load|graph1|server1|$start_time{$step}|$size|$step|" . join("|", @test);
     print "loading test data\n";
     $result = $pylon->command($load_string);
-    print $result;
+    print "$result\n";
     unless ($result =~/OK/) { die("FAIL\n"); }
 
     print "checking status\n";
     $result = $pylon->command("status");
-    print $result;
+    print "$result\n";
     if ($result =~/servers=1/) { print "OK\n"; } 
     else { die("FAIL\n"); }
 
     print "validating graph list.\n";
     $result = $pylon->command("graphs|server1");
-    print $result if ($debug);
-    if ($result eq "graph1\n") { print "OK\n"; } 
+    print "$result\n" if ($debug);
+    if ($result eq "graph1") { print "OK\n"; } 
     else { die("FAIL\n"); }
 
     print "dumping and validating test data\n";
     $result = $pylon->command("dump|graph1|server1");
-    print $result if ($debug);
+    print "$result\n" if ($debug);
     if ($result =~/$size\|$step\|$test[0]\.0+\|.*\|$test[$size-1]\.0+/) { print "OK\n"; } 
     else { die("FAIL\n")}
 
@@ -94,7 +94,7 @@ sub main {
 
     print "dumping and validating test data\n";
     $result = $pylon->command("dump|graph1|server1");
-    print $result if ($debug);
+    print "$result\n" if ($debug);
     if ($result =~/$size\|$step\|$test[1]\.0+\|.*\|$test[$size-1]\.0+\|$add_value1\.0+/) { print "OK\n"; } 
     else { die("FAIL\n"); }
 
@@ -103,12 +103,12 @@ sub main {
 
     print "adding a single value: $add_value2\n";
     $result = $pylon->command("add|graph1|server1|$add_value2");
-    print $result;
+    print "$result\n";
     unless ($result =~/OK/) { die("FAIL\n"); }
 
     print "dumping and validating test data\n";
     $result = $pylon->command("dump|graph1|server1");
-    print $result if ($debug);
+    print "$result\n" if ($debug);
     if ($result =~/$size\|$step\|$test[2]\.0+\|.*\|$test[$size-1]\.0+\|$add_value1\.0+\|$add_value2\.0+/) { print "OK\n"; } 
     else { die("FAIL\n"); }
 
@@ -116,36 +116,36 @@ sub main {
     $load_string =~s/server1/server2/;
     print "loading test data for second server\n";
     $result = $pylon->command($load_string);
-    print $result;
+    print "$result\n";
     unless ($result =~/OK/) { die("FAIL\n"); } 
 
     print "dumping and validating test data\n";
     $result = $pylon->command("dump|graph1|server2");
-    print $result if ($debug);
+    print "$result\n" if ($debug);
     if ($result =~/$size\|$step\|.*\|5755\.0+\|5765\.0+/) { print "OK\n"; } 
     else { die("FAIL\n"); }
 
     print "checking status\n";
     $result = $pylon->command("status");
-    print $result;
+    print "$result\n";
     if ($result =~/servers=2/) { print "OK\n"; } 
     else { die("FAIL\n"); }
 
     print "getting data for multiple servers\n";
     $result = $pylon->command("get|graph1|$start_time{$step}|server1|server2");
-    print $result if ($debug);
+    print "$result\n" if ($debug);
     if ($result =~/\|$size\|$step\|.*\|11500\.0+\|11510\.0+\|11530\.0+/) { print "OK\n"; }
     else { die("FAIL\n"); }
 
     print "getting average data for multiple servers\n";
     $result = $pylon->command("avg|graph1|$start_time{$step}|server1|server2");
-    print $result if ($debug);
+    print "$result\n" if ($debug);
     if ($result =~/$size\|$step\|.*\|5755\.0+\|5765\.0+/) { print "OK\n"; } 
     else { die("FAIL\n"); }
 
     print "resetting server\n";
     $result = $pylon->command("reset");
-    print $result;
+    print "$result\n";
     unless ($result =~/OK/) { die("FAIL\n"); } 
 
     $pylon->waitForIt({step=>$step});
@@ -161,7 +161,7 @@ sub main {
         $start_time{$step} = time() - ($now % $step) - (($size) * $step);
         my $load_string = "load|graph1|server1|$start_time{$step}|$size|$step|" . join("|", @{$data->{$step}});
         $result = $pylon->command($load_string);
-        print $result;
+        print "$result\n";
         unless ($result =~/OK/) { die("FAIL\n"); } 
     }
 
@@ -244,7 +244,7 @@ sub main {
     $pylon->command("add|graph1|server1|$cleanup_time");
     print "checking status\n";
     $result = $pylon->command("status");
-    print $result;
+    print "$result\n";
     if ($result =~/servers=1/) { print "OK\n"; } 
     else { die("FAIL\n"); }
 
@@ -256,11 +256,11 @@ sub main {
 
     print "forcing a cleanup\n";
     $result = $pylon->command("cleanup|0");
-    print $result;
-    die("FAIL\n") unless ($result eq "OK\n");
+    print "$result\n";
+    die("FAIL\n") unless ($result eq "OK");
     print "checking status\n";
     $result = $pylon->command("status");
-    print $result;
+    print "$result\n";
     if ($result =~/servers=0/) { print "OK\n"; } 
     else { die("FAIL\n"); }
 }
