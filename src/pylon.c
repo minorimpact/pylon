@@ -354,6 +354,55 @@ char* parseCommand(char *buf, time_t now, server_t *server_index, vlopts_t *opts
             }
         }
         strcat(output_buf, "\n");
+    } else if (strcmp(command, "shortgraphs") == 0) {
+        char *server_id = strtok(NULL, "|\n\r");
+        char *e;
+        char tmp2[1024];
+
+        outlog(5, "pylon.parseCommand: shortgraphs|%s\n", server_id);
+
+        while (server_id != NULL && strcmp(server_id,"EOF") != 0) {
+            int i;
+            char *tmp_str = getGraphList(server_index, server_id);
+            if (tmp_str != NULL) {
+                int strpos = 0;
+                for (i=0; i <= strlen(tmp_str); i++) {
+                    if (*(tmp_str+i) == '|' || i == strlen(tmp_str)) {
+                        int newlen = i - strpos;
+                        strncpy(tmp2,tmp_str + strpos,newlen);
+                        e = strchr(tmp2, ',');
+                        if (e != NULL) {
+                            *e = '|';
+                            *(e+1) = 0;
+                        } else {
+                            tmp2[newlen] = '|';
+                            tmp2[newlen+1] = 0;
+                        }
+
+                        if (strstr(output_buf, tmp2) == NULL) {
+                            strcat(output_buf, tmp2);
+                        }
+                        i++;
+                        strpos = i;
+
+                        if (strlen(output_buf) > ((BUFLEN) * 0.95)) {
+                            break;
+                        }
+                    }
+                }
+                outlog(10, "pylon.parseCommand: free tmp_str %p\n", tmp_str);
+                free(tmp_str);
+                if (strlen(output_buf) > ((BUFLEN) * 0.95)) {
+                    outlog(2, "pylon.parseCommand: graph list too large\n");
+                    break;
+                }
+            }
+            server_id = strtok(NULL, "|\n\r");
+        }
+        if (strlen(output_buf) > 0) {
+            output_buf[strlen(output_buf) - 1] = 0;
+        }
+        strcat(output_buf,"\n");
     } else if (strcmp(command, "status") == 0) {
         outlog(5, "pylon.parseCommand: status\n");
         char tmp_str[512];
