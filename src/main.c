@@ -105,11 +105,20 @@ void on_read(struct ev_loop *loop, ev_io *ev_read, int revents) {
     if (len >= 0) {
         input_buf[len] = 0;
         parseCommand(input_buf, now, server_index, opts, stats, dump_config, output_buf);
+        len = strlen(output_buf);
 
-        if (output_buf != NULL && strlen(output_buf) > 0) {
-            len = write(ev_read->fd, output_buf, strlen(output_buf));
-            if (len == -1) {
-                outlog(1, "main.on_read: ERR:write errno:%d\n", errno);
+        if (len > 0) {
+            int writepos = 0;
+            int written = 0;
+
+            while (writepos < len) {
+                written = write(ev_read->fd, output_buf + writepos, 1024);
+                if (written == -1) {
+                    outlog(1, "main.on_read: ERR:write errno:%d\n", errno);
+                    break;
+                } else {
+                    writepos += written;
+                }
             }
         }
     }
