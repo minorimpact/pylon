@@ -45,6 +45,7 @@ time_t now;
 struct ev_loop *loop;
 char* max_memory;
 u_char *input_buf;
+u_char *output_buf;
 
 void outlog(int level, char *str, ... ) {
     if (opts->loglevel >= level) {
@@ -103,18 +104,13 @@ void on_read(struct ev_loop *loop, ev_io *ev_read, int revents) {
 
     if (len >= 0) {
         input_buf[len] = 0;
-        char *output_buf = parseCommand(input_buf, now, server_index, opts, stats, dump_config);
+        parseCommand(input_buf, now, server_index, opts, stats, dump_config, output_buf);
 
         if (output_buf != NULL && strlen(output_buf) > 0) {
             len = write(ev_read->fd, output_buf, strlen(output_buf));
             if (len == -1) {
                 outlog(1, "main.on_read: ERR:write errno:%d\n", errno);
             }
-        }
-
-        if (output_buf != NULL) {
-            outlog(10, "pylon.on_read: free output_buf %p\n", output_buf);
-            free(output_buf);
         }
     }
 
@@ -229,6 +225,12 @@ int main(int argc, char **argv) {
     dump_config->abort = 0;
     dump_config->dump_fd = 0;
     dump_config->enabled = 0;
+
+    output_buf = calloc(BUFLEN, sizeof(u_char));
+    if (output_buf == NULL) {
+        outlog(1, "main: malloc output_buf FAILED\n");
+        exit(-1);
+    }
 
     bool do_daemonize = false;
     char *pid_file = "/var/run/pylon.pid";

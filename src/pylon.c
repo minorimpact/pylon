@@ -6,37 +6,35 @@
 #include <event.h>
 #include "pylon.h"
 
-char* parseCommand(char *buf, time_t now, server_t *server_index, vlopts_t *opts, stats_t *stats, dump_config_t *dump_config) {
+void parseCommand(u_char *input_buf, time_t now, server_t *server_index, vlopts_t *opts, stats_t *stats, dump_config_t *dump_config, u_char *output_buf) {
     int i;
-    char *tmp = NULL;
-    u_char *output_buf;
+    //u_char *output_buf;
+    char *tmp;
     char *command;
+    int len = strlen(input_buf);
     now = time(NULL);
-    int len = strlen(buf);
 
     outlog(7, "pylon.parseCommand: start\n");
 
     stats->commands++;
 
-    output_buf = calloc(BUFLEN, sizeof(u_char));
-    if (output_buf == NULL) {
-        outlog(1, "pylon.parseCommand: malloc output_buf FAILED\n");
+    //output_buf = calloc(BUFLEN, sizeof(u_char));
+    //if (output_buf == NULL) {
+    //    outlog(1, "pylon.parseCommand: malloc output_buf FAILED\n");
+    //    fflush(stdout);
+    //    exit(-1);
+    //}
+    //outlog(10, "pylon.parseCommand: malloc output_buf %p\n", output_buf);
+    output_buf[0] = 0;
+
+    tmp = calloc((len+1), sizeof(u_char));
+    if (tmp == NULL) {
+        outlog(1, "pylon.parseCommand: malloc tmp FAILED\n");
         fflush(stdout);
         exit(-1);
     }
-
-    outlog(10, "pylon.parseCommand: malloc output_buf %p\n", output_buf);
-
-    if (tmp == NULL) {
-        tmp = calloc((len+1), sizeof(u_char));
-        if (tmp == NULL) {
-            outlog(1, "pylon.parseCommand: malloc tmp FAILED\n");
-            fflush(stdout);
-            exit(-1);
-        }
-        outlog(10, "pylon.parseCommand: malloc tmp %p\n", tmp);
-        strcpy(tmp, buf);
-    }
+    outlog(10, "pylon.parseCommand: malloc tmp %p\n", tmp);
+    strcpy(tmp, input_buf);
 
     command = strtok(tmp, "|\n\r");
     if (strcmp(command, "add") == 0) {
@@ -211,9 +209,8 @@ char* parseCommand(char *buf, time_t now, server_t *server_index, vlopts_t *opts
         char *server_id = strtok(NULL, "|\n\r");
         char tmp2[1024];
 
-        outlog(5, "pylon.parseCommand: graphs|%s\n", server_id);
-
         while (server_id != NULL && strcmp(server_id,"EOF") != 0) {
+            outlog(5, "pylon.parseCommand: graphs|%s\n", server_id);
             int i;
             char *tmp_str = getGraphList(server_index, server_id);
             if (tmp_str != NULL) {
@@ -359,9 +356,8 @@ char* parseCommand(char *buf, time_t now, server_t *server_index, vlopts_t *opts
         char *e;
         char tmp2[1024];
 
-        outlog(5, "pylon.parseCommand: shortgraphs|%s\n", server_id);
-
         while (server_id != NULL && strcmp(server_id,"EOF") != 0) {
+            outlog(5, "pylon.parseCommand: shortgraphs|%s\n", server_id);
             int i;
             char *tmp_str = getGraphList(server_index, server_id);
             if (tmp_str != NULL) {
@@ -428,7 +424,7 @@ char* parseCommand(char *buf, time_t now, server_t *server_index, vlopts_t *opts
     outlog(10, "pylon.parseCommand: free tmp %p\n", tmp);
     free(tmp);
     outlog(5, output_buf);
-    return output_buf;
+    //return output_buf;
 }
 
 void dump_data(dump_config_t *dump_config) {
@@ -450,7 +446,6 @@ void dump_data(dump_config_t *dump_config) {
         return;
 
     outlog(10, "pylon.dump_data: start\n");
-    fflush(stdout);
 
     if (dump_config->loading == 1) {
         // Haven't implemented this yet, but I eventually want to move the data loading
@@ -461,7 +456,6 @@ void dump_data(dump_config_t *dump_config) {
         if (dump_config->graph != NULL) {
             // We're sitting on a valid graph, so move to the next one.
             outlog(10, "pylon.dump_data: increment graph pointer\n");
-            fflush(stdout);
             dump_config->graph = dump_config->graph->next;
         }
 
@@ -469,24 +463,20 @@ void dump_data(dump_config_t *dump_config) {
             // Graph is null, so we're either before the first one or after
             // the last one.
             outlog(10, "pylon.dump_data: graph pointer is null\n");
-            fflush(stdout);
             if (dump_config->server == NULL) {
                 // Server is null, so this must be our first time through.
                 // Set the server to the first one on the list.
                 outlog(10, "pylon.dump_data: first server\n");
-                fflush(stdout);
                 dump_config->server = dump_config->server_index->next;
             } else {
                 // Otherwise, move us to the next server.
                 outlog(10, "pylon.dump_data: increment server pointer\n");
-                fflush(stdout);
                 dump_config->server = dump_config->server->next;
             }
 
             if (dump_config->server != NULL) {
                 // Assuming we have a server, start with the first graph.
                 outlog(10, "pylon.dump_data: server is not null, start with first graph\n");
-                fflush(stdout);
                 dump_config->graph = dump_config->server->graph->next;
             }
         } 
@@ -496,38 +486,28 @@ void dump_data(dump_config_t *dump_config) {
         if (dump_config->graph == NULL && dump_config->server == NULL && dump_config->dump_fd > 0) {
             // Reached the end of the set.  Close the temp file, and swap it to live.
             outlog(10, "pylon.dump_data: reached the end of the set\n");
-            fflush(stdout);
             outlog(10, "pylon.dump_data: closing %s\n", dump_config->dump_file_tmp);
-            fflush(stdout);
             close(dump_config->dump_fd);
             dump_config->dump_fd = 0;
             outlog(10, "pylon.dump_data: renaming %s to %s\n", dump_config->dump_file_tmp, dump_config->dump_file);
-            fflush(stdout);
             rename(dump_config->dump_file_tmp, dump_config->dump_file);
             dump_config->completed = time(NULL);
             return;
         } else if (dump_config->graph != NULL && dump_config->server != NULL) {
             outlog(10, "pylon.dump_data: sitting on a valid entry\n");
-            fflush(stdout);
             if (dump_config->dump_fd < 1) {
                 // Temp file hasn't been created.  Do so.
                 outlog(10, "pylon.dump_data: temp file hasn't been created\n");
-                fflush(stdout);
                 outlog(10, "pylon.dump_data: removing %s\n", dump_config->dump_file_tmp);
-                fflush(stdout);
                 unlink(dump_config->dump_file_tmp);
                 outlog(10, "pylon.dump_data: opening %s\n", dump_config->dump_file_tmp);
-                fflush(stdout);
                 dump_config->dump_fd = open(dump_config->dump_file_tmp, O_WRONLY|O_CREAT, 0755);
                 if (dump_config->dump_fd < 1) {
                     outlog(10, "pylon.dump_data: can't open %s for writing (dump_fd=%d)\n", dump_config->dump_file_tmp, dump_config->dump_fd);
-                    fflush(stdout);
                     outlog(10, "pylon.dump_data: trying again\n");
-                    fflush(stdout);
                     dump_config->dump_fd = open(dump_config->dump_file_tmp, O_WRONLY|O_CREAT, 0755);
                     if (dump_config->dump_fd < 1) {
                         outlog(10, "pylon.dump_data: still can't open %s for writing (dump_fd=%d)\n", dump_config->dump_file_tmp, dump_config->dump_fd);
-                        fflush(stdout);
                         exit(-1);
                     }
                 }
@@ -536,31 +516,23 @@ void dump_data(dump_config_t *dump_config) {
             dump_config->graphdump[0] = 0;
 
             outlog(10, "pylon.dump_data: collecting %s/%s. buffer size: %d\n", dump_config->server->name, dump_config->graph->name, (BUFLEN*sizeof(u_char)));
-            fflush(stdout);
             dumpGraph(dump_config->graph, dump_config->server->name, dump_config->now, dump_config->graphdump);
-            fflush(stdout);
             outlog(10, "pylon.dump_data: writing to dump file %s\n", dump_config->dump_file_tmp);
-            fflush(stdout);
             int ret;
             ret = write(dump_config->dump_fd, dump_config->graphdump, strlen(dump_config->graphdump));
             if (ret < 0) {
                 outlog(10, "pylon.dump_data: error writing to %s: %d\n", dump_config->dump_file_tmp, ret);
-                fflush(stdout);
                 exit(-1);
             } else if ( ret < strlen(dump_config->graphdump)) {
                 outlog(10, "pylon.dump_data: only wrote %d bytes to %s, should have written %d\n", ret, dump_config->dump_file_tmp, strlen(dump_config->graphdump));
-                fflush(stdout);
                 exit(-1);
             }
-            fflush(stdout);
             outlog(10, "pylon.dump_data: dump_config->dump_fd=%d\n", dump_config->dump_fd);
         } else {
             outlog(10, "pylon.dump_data: nothing to do\n");
-            fflush(stdout);
             dump_config->completed = time(NULL);
         }
         outlog(10, "pylon.dump_data: finished dump run\n");
-        fflush(stdout);
     }
 }
 
