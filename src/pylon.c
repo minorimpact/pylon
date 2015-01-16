@@ -228,8 +228,7 @@ void parseCommand(u_char *input_buf, time_t now, server_t *server_index, vlopts_
                         strncpy(tmp2,tmp_str + strpos,newlen);
                         tmp2[newlen] = '|';
                         tmp2[newlen+1] = 0;
-                        if (strstr(output_buf, tmp2) == NULL && (strlen(pattern) == 0 || (strlen(pattern) > 0 && strstr(tmp2, pattern) == tmp2))) {
-                            outlog(8, "pylon.parseCommand(graphs): strstr(%s,%s)=%p, tmp2=%p\n", tmp2, pattern, strstr(tmp2, pattern), tmp2);
+                        if (strstr(output_buf, tmp2) == NULL && (pattern[0] == 0 || (pattern[0] > 0 && strstr(tmp2, pattern) == tmp2))) {
                             strcat(output_buf, tmp2);
                         }
                         i++;
@@ -391,8 +390,7 @@ void parseCommand(u_char *input_buf, time_t now, server_t *server_index, vlopts_
                             tmp2[newlen+1] = 0;
                         }
 
-                        if (strstr(output_buf, tmp2) == NULL && (strlen(pattern) == 0 || (strlen(pattern) > 0 && strstr(tmp2, pattern) == tmp2))) {
-                            outlog(8, "pylon.parseCommand(shortgraphs): strstr(%s,%s)=%p, tmp2=%p\n", tmp2, pattern, strstr(tmp2, pattern), tmp2);
+                        if (strstr(output_buf, tmp2) == NULL && (pattern[0] == 0 || (pattern[0] > 0 && strstr(tmp2, pattern) == tmp2))) {
                             strcat(output_buf, tmp2);
                         }
                         i++;
