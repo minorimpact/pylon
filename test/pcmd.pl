@@ -3,5 +3,5 @@
 use Pylon;
 
 my $pylon = new Pylon;
-print $pylon->command($ARGV[0]);
+print $pylon->command($ARGV[0]) . "\n";
 

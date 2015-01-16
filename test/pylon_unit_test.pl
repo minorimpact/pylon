@@ -143,6 +143,36 @@ sub main {
     if ($result =~/$size\|$step\|.*\|5755\.0+\|5765\.0+/) { print "OK\n"; } 
     else { die("FAIL\n"); }
 
+    print "adding a single value: test,one = $add_value2\n";
+    $result = $pylon->command("add|test,one|server1|$add_value2");
+    print "$result\n";
+    unless ($result =~/OK/) { die("FAIL\n"); }
+
+    print "adding a single value: test,two = $add_value2\n";
+    $result = $pylon->command("add|test,two|server1|$add_value2");
+    print "$result\n";
+    unless ($result =~/OK/) { die("FAIL\n"); }
+
+    print "pulling graphs\n";
+    $result = $pylon->command("graphs|server1|server2");
+    print "$result\n";
+    unless ($result =~/^test,two\|test,one\|graph1$/) { die("FAIL\n"); }
+
+    print "pulling patterned graphs\n";
+    $result = $pylon->command("graphs|^test|server1|server2");
+    print "$result\n";
+    unless ($result =~/^test,(one|two)\|test,(two|one)$/) { die("FAIL\n"); }
+
+    print "pulling short graphs\n";
+    $result = $pylon->command("shortgraphs|server1|server2");
+    print "$result\n";
+    unless ($result =~/^test\|graph1$/) { die("FAIL\n"); }
+
+    print "pulling patterned short graphs\n";
+    $result = $pylon->command("shortgraphs|^test|server1|server2");
+    print "$result\n";
+    unless ($result =~/^test$/) { die("FAIL\n"); }
+
     print "resetting server\n";
     $result = $pylon->command("reset");
     print "$result\n";

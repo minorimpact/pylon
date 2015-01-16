@@ -30,7 +30,6 @@ void parseCommand(u_char *input_buf, time_t now, server_t *server_index, vlopts_
     tmp = calloc((len+1), sizeof(u_char));
     if (tmp == NULL) {
         outlog(1, "pylon.parseCommand: malloc tmp FAILED\n");
-        fflush(stdout);
         exit(-1);
     }
     outlog(10, "pylon.parseCommand: malloc tmp %p\n", tmp);
@@ -207,10 +206,18 @@ void parseCommand(u_char *input_buf, time_t now, server_t *server_index, vlopts_
         stats->gets++;
     } else if (strcmp(command, "graphs") == 0 || strcmp(command, "checks") == 0) {
         char *server_id = strtok(NULL, "|\n\r");
-        char tmp2[1024];
+        char tmp2[256];
+        char pattern[256];
+        pattern[0] = 0;
+        
+        if (server_id[0] == '^') {
+            strcat(pattern, server_id + 1); 
+            outlog(8, "pylon.parseCommand(graphs): pattern='%s'\n", pattern);
+            server_id = strtok(NULL, "|\n\r");
+        }
 
         while (server_id != NULL && strcmp(server_id,"EOF") != 0) {
-            outlog(5, "pylon.parseCommand: graphs|%s\n", server_id);
+            outlog(5, "pylon.parseCommand(graphs): server_id='%s'\n", server_id);
             int i;
             char *tmp_str = getGraphList(server_index, server_id);
             if (tmp_str != NULL) {
@@ -221,7 +228,8 @@ void parseCommand(u_char *input_buf, time_t now, server_t *server_index, vlopts_
                         strncpy(tmp2,tmp_str + strpos,newlen);
                         tmp2[newlen] = '|';
                         tmp2[newlen+1] = 0;
-                        if (strstr(output_buf, tmp2) == NULL) {
+                        if (strstr(output_buf, tmp2) == NULL && (strlen(pattern) == 0 || (strlen(pattern) > 0 && strstr(tmp2, pattern) == tmp2))) {
+                            outlog(8, "pylon.parseCommand(graphs): strstr(%s,%s)=%p, tmp2=%p\n", tmp2, pattern, strstr(tmp2, pattern), tmp2);
                             strcat(output_buf, tmp2);
                         }
                         i++;
@@ -354,10 +362,18 @@ void parseCommand(u_char *input_buf, time_t now, server_t *server_index, vlopts_
     } else if (strcmp(command, "shortgraphs") == 0) {
         char *server_id = strtok(NULL, "|\n\r");
         char *e;
-        char tmp2[1024];
+        char tmp2[256];
+        char pattern[256];
+        pattern[0] = 0;
+        
+        if (server_id[0] == '^') {
+            strcat(pattern, server_id + 1); 
+            outlog(8, "pylon.parseCommand(shortgraphs): pattern='%s'\n", pattern);
+            server_id = strtok(NULL, "|\n\r");
+        }
 
         while (server_id != NULL && strcmp(server_id,"EOF") != 0) {
-            outlog(5, "pylon.parseCommand: shortgraphs|%s\n", server_id);
+            outlog(5, "pylon.parseCommand(shortgraphs): server_id='%s'\n", server_id);
             int i;
             char *tmp_str = getGraphList(server_index, server_id);
             if (tmp_str != NULL) {
@@ -375,7 +391,8 @@ void parseCommand(u_char *input_buf, time_t now, server_t *server_index, vlopts_
                             tmp2[newlen+1] = 0;
                         }
 
-                        if (strstr(output_buf, tmp2) == NULL) {
+                        if (strstr(output_buf, tmp2) == NULL && (strlen(pattern) == 0 || (strlen(pattern) > 0 && strstr(tmp2, pattern) == tmp2))) {
+                            outlog(8, "pylon.parseCommand(shortgraphs): strstr(%s,%s)=%p, tmp2=%p\n", tmp2, pattern, strstr(tmp2, pattern), tmp2);
                             strcat(output_buf, tmp2);
                         }
                         i++;
