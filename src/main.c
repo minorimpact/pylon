@@ -89,15 +89,15 @@ void dump(struct ev_loop *loop, ev_idle *ev_idle, int revents) {
 void on_read(struct ev_loop *loop, ev_io *ev_read, int revents) {
     outlog(7, "main.on_read: start\n");
 
-    //int len = read(ev_read->fd, input_buf, BUFLEN);
     int len = 0;
     int read_size;
     while ((read_size = read(ev_read->fd, input_buf + len, 1024)) > 0) {
         len = len + read_size;
         input_buf[len] = 0;
-        outlog(8, "main.on_read: read:%d %s\n", read_size, input_buf);
-        if (len + 1024 > BUFLEN) {
+        outlog(8, "main.on_read: read:%d (%d) %s\n", read_size, strlen(input_buf), input_buf);
+        if (len + 1024 > (BUFLEN)) {
             outlog(2, "main.on_read: too much data\n");
+            strcat(input_buf, "|EOF");
             break;
         }
     }
@@ -335,7 +335,7 @@ int main(int argc, char **argv) {
     }
     outlog(3,"main.main: initializing\n");
 
-    input_buf = malloc((BUFLEN * sizeof(u_char)) + 1024);
+    input_buf = malloc(((BUFLEN) * sizeof(u_char)) + 1024);
     if (input_buf == NULL) {
         outlog(1, "main.main: malloc input_buf FAILED\n");
         exit(-1);

@@ -18,13 +18,6 @@ void parseCommand(u_char *input_buf, time_t now, server_t *server_index, vlopts_
 
     stats->commands++;
 
-    //output_buf = calloc(BUFLEN, sizeof(u_char));
-    //if (output_buf == NULL) {
-    //    outlog(1, "pylon.parseCommand: malloc output_buf FAILED\n");
-    //    fflush(stdout);
-    //    exit(-1);
-    //}
-    //outlog(10, "pylon.parseCommand: malloc output_buf %p\n", output_buf);
     output_buf[0] = 0;
 
     tmp = calloc((len+1), sizeof(u_char));
@@ -117,19 +110,19 @@ void parseCommand(u_char *input_buf, time_t now, server_t *server_index, vlopts_
         char *graph_id = strtok(NULL, "|\n\r");
         char *range_s = strtok(NULL, "|\n\r");
         char *server_id = strtok(NULL, "|\n\r");
-        outlog(5, "pylon.parseCommand: get|%s|%s|%s\n", graph_id, range_s, server_id);
+        outlog(5, "pylon.parseCommand(%s): get|%s|%s|%s\n", command, graph_id, range_s, server_id);
         if (graph_id == NULL || strcmp(graph_id, "EOF") == 0 ||
             range_s == NULL || strcmp(range_s, "EOF") == 0 ||
             server_id == NULL || strcmp(server_id, "EOF") == 0) {
             strcpy(output_buf, "INVALID\n");
             return;
         }
-        char *tmp_output_buf = calloc(BUFLEN, sizeof(u_char));
+        char *tmp_output_buf = calloc((BUFLEN), sizeof(u_char));
         if (tmp_output_buf == NULL) {
-            outlog(1, "pylon.parseCommand: malloc tmp_output_buf FAILED\n");
+            outlog(1, "pylon.parseCommand(%s): malloc tmp_output_buf FAILED\n", command);
             exit(-1);
         }
-        outlog(10, "pylon.parseCommand: malloc tmp_output_buf %p\n", tmp_output_buf);
+        outlog(10, "pylon.parseCommand(%s): malloc tmp_output_buf %p\n", command, tmp_output_buf);
         time_t first = 0;
         int range = 0;
         int size = 0;
@@ -140,37 +133,48 @@ void parseCommand(u_char *input_buf, time_t now, server_t *server_index, vlopts_
         valueList_t *vl = getValueList(server_index, server_id, graph_id, now, range, 0, opts->bucket_count, opts->bucket_size, opts->buckets);
 
         if (vl == NULL) {
-            server_id = strtok(NULL, "|\n\r");
-            while (vl==NULL && strcmp(server_id,"EOF") != 0 && server_id != NULL) {
-                vl = getValueList(server_index, server_id, graph_id, now, range, 0, opts->bucket_count, opts->bucket_size, opts->buckets);
+            outlog(8, "pylon.parseCommand(%s): no valueList for %s, looking for another.\n", command, server_id);
+            while (vl==NULL && strcmp(server_id, "EOF") != 0 && server_id != NULL) {
                 server_id = strtok(NULL, "|\n\r");
+                outlog(8, "pylon.parseCommand(%s): trying %s\n", command, server_id);
+                vl = getValueList(server_index, server_id, graph_id, now, range, 0, opts->bucket_count, opts->bucket_size, opts->buckets);
+            }
+            if (strcmp(server_id, "EOF") == 0 || server_id == NULL) {
+                outlog(8, "pylon.parseCommand(%s): No valid server found\n", command);
+            } else {
+                outlog(8, "pylon.parseCommand(%s): using %s\n", command, server_id);
             }
         }
 
         if (vl != NULL) {
+            // Use the first server that returns data as a model for the entire data set.
             // Initialize the data set to return.
             double data[vl->size];
             for (i=0; i<vl->size; i++) {
                 data[i] = 0.0/0.0;
             }
 
-            // Use the first server as a model for the data set.
-            if (strcmp(server_id,"EOF") != 0 && vl != NULL && server_id != NULL) {
+            if (server_id != NULL && strcmp(server_id,"EOF") != 0 && vl != NULL) {
                 char tmp_str[50];
                 // Walk through the list of requested servers and build our data list.
-                while (strcmp(server_id,"EOF") != 0 && server_id != NULL) {
+                while (server_id != NULL && strcmp(server_id,"EOF") != 0) {
+                    outlog(8, "pylon.parseCommand(%s): trying %s\n", command, server_id);
                     valueList_t *vl2 = getValueList(server_index, server_id, graph_id, now, range, 0, opts->bucket_count, opts->bucket_size, opts->buckets);
                     if (vl2 != NULL && vl2->size == vl->size && vl2->step == vl->step) {
+                        outlog(8, "pylon.parseCommand(%s): adding data from %s\n", command, server_id);
                         addValueListToData(vl2, data);
                         server_count++;
                     }
                     server_id = strtok(NULL, "|\n\r");
+                    outlog(8, "pylon.parseCommand(%s): next server to test - %s\n", command, server_id);
                 }
+                outlog(8, "pylon.parseCommand(%s): finished iterating server list\n", command);
                 
                 if (range == 0) {
                     range = vl->first;
                 }
 
+                outlog(8, "pylon.parseCommand(%s): building output string\n", command);
                 for (i=0; i<vl->size; i++) {
                     if ((vl->first + (vl->step * i) > range)) {
                         if (!first) {
@@ -187,6 +191,7 @@ void parseCommand(u_char *input_buf, time_t now, server_t *server_index, vlopts_
                         }
                     }
                 }
+                outlog(8, "pylon.parseCommand(%s): finished building output string\n", command);
 
                 sprintf(tmp_str, "%d|", first);
                 strcpy(output_buf, tmp_str);
@@ -199,6 +204,7 @@ void parseCommand(u_char *input_buf, time_t now, server_t *server_index, vlopts_
             }
         } else {
             // No data to return.
+            outlog(8, "pylon.parseCommand(%s): no data to return\n", command);
             strcpy(output_buf, "0|0|0\n");
         }
         outlog(10, "pylon.parseCommand: free tmp_output_buf %p\n", tmp_output_buf);
@@ -212,12 +218,12 @@ void parseCommand(u_char *input_buf, time_t now, server_t *server_index, vlopts_
         
         if (server_id[0] == '^') {
             strcat(pattern, server_id + 1); 
-            outlog(8, "pylon.parseCommand(graphs): pattern='%s'\n", pattern);
+            outlog(8, "pylon.parseCommand(%s): pattern='%s'\n", command, pattern);
             server_id = strtok(NULL, "|\n\r");
         }
 
         while (server_id != NULL && strcmp(server_id,"EOF") != 0) {
-            outlog(5, "pylon.parseCommand(graphs): server_id='%s'\n", server_id);
+            outlog(5, "pylon.parseCommand(%s): server_id='%s'\n", command, server_id);
             int i;
             char *tmp_str = getGraphList(server_index, server_id);
             if (tmp_str != NULL) {

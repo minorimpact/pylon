@@ -41,6 +41,7 @@ int cleanupServerIndex(server_t *server_index, time_t now, int cleanup) {
 }
 
 server_t *getServerByName(server_t *server_index, char *server_id, int force) {
+    outlog(7, "servergraph.getServerByName: start (server_id=%s)\n", server_id);
     server_t *server = server_index->next;
 
     // Scan the list for the server;
@@ -78,7 +79,7 @@ server_t *getServerByName(server_t *server_index, char *server_id, int force) {
 }
 
 graph_t *getServerGraphByName(server_t *server_index, char *server_id, char *graph_id, int force) {
-    outlog(7, "servergraph.getServerGraphByName: start\n");
+    outlog(7, "servergraph.getServerGraphByName: start (server_id=%s, graph_id=%s)\n", server_id, graph_id);
     server_t *server = getServerByName(server_index, server_id, force);
     if (server == NULL) {
         return NULL;
@@ -243,6 +244,7 @@ char *getGraphList(server_t *server_index, char *server_id) {
 }
 
 valueList_t *getValueList(server_t *server_index, char *server_id, char *graph_id, time_t now, int range, int force, int bucket_count, int size, int *steps) {
+    outlog(7, "servergraph.getValueList: start (server_id=%s, graph_id=%s)\n", server_id, graph_id);
     graph_t *graph = getServerGraphByName(server_index, server_id, graph_id, force);
 
     if (graph == NULL) {
