@@ -19,6 +19,6 @@ if [ $PYLON_STATUS = 0 ]; then
     rm -f /tmp/pylon.log
     /sbin/service pylon start
 fi
-[ $PYLON_LOG_SIZE -gt 250000000 ] && > /tmp/pylon.log
+[ $PYLON_LOG_SIZE -gt 2000000000 ] && > /tmp/pylon.log
 rm -f $LOCKFILE
 

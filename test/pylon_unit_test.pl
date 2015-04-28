@@ -88,7 +88,7 @@ sub main {
     else { die("FAIL\n")}
 
     print "adding a single value: $add_value1\n";
-    $result = $pylon->command("add|graph1|server1|$add_value1");
+    $result = $pylon->add("server1", "graph1", $add_value1);
     if ($result =~/OK/) { print "OK\n"; } 
     else { die("FAIL\n")}
 
@@ -102,7 +102,7 @@ sub main {
     $start_time{$step} += $step;
 
     print "adding a single value: $add_value2\n";
-    $result = $pylon->command("add|graph1|server1|$add_value2");
+    $result = $pylon->add("server1", "graph1", $add_value2);
     print "$result\n";
     unless ($result =~/OK/) { die("FAIL\n"); }
 
@@ -144,12 +144,12 @@ sub main {
     else { die("FAIL\n"); }
 
     print "adding a single value: test,one = $add_value2\n";
-    $result = $pylon->command("add|test,one|server1|$add_value2");
+    $result = $pylon->add("server1", "test,one", $add_value2);
     print "$result\n";
     unless ($result =~/OK/) { die("FAIL\n"); }
 
     print "adding a single value: test,two = $add_value2\n";
-    $result = $pylon->command("add|test,two|server1|$add_value2");
+    $result = $pylon->add("server1", "test,two", $add_value2);
     print "$result\n";
     unless ($result =~/OK/) { die("FAIL\n"); }
 
@@ -271,7 +271,7 @@ sub main {
     print "OK\n";
 
     print "Adding test server data\n";
-    $pylon->command("add|graph1|server1|$cleanup_time");
+    $pylon->add("server1", "graph1", $cleanup_time);
     print "checking status\n";
     $result = $pylon->command("status");
     print "$result\n";
