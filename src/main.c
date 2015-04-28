@@ -3,7 +3,7 @@
  * gcc -lev main.c pylon.c servergraph.c valuelist.c daemon.c -o ../pylon
  */
 
-#include <sys/time.h>
+#include <time.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -50,6 +50,11 @@ u_char *output_buf;
 void outlog(int level, char *str, ... ) {
     if (opts->loglevel >= level) {
         va_list args;
+        time_t t = time(NULL);
+        struct tm *tmp = localtime(&t);
+        char outstr[200];
+        strftime(outstr, sizeof(outstr), "%Y-%m-%d %T", tmp);
+        printf("%s: ", outstr);
         va_start( args, str );
         vprintf(str, args);
         fflush(stdout);

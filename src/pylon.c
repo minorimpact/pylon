@@ -3,7 +3,6 @@
 #include <string.h>
 #include <sys/types.h>
 #include <fcntl.h>
-#include <event.h>
 #include "pylon.h"
 
 void parseCommand(u_char *input_buf, time_t now, server_t *server_index, vlopts_t *opts, stats_t *stats, dump_config_t *dump_config, u_char *output_buf) {
