@@ -107,7 +107,7 @@ void on_read(struct ev_loop *loop, ev_io *ev_read, int revents) {
         }
     }
 
-    if (len >= 0) {
+    if (len > 0) {
         input_buf[len] = 0;
         parseCommand(input_buf, now, server_index, opts, stats, dump_config, output_buf);
         len = strlen(output_buf);
