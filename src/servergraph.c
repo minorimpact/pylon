@@ -18,6 +18,7 @@ int cleanupServerIndex(server_t *server_index, time_t now, int cleanup) {
         graph_t *graph = server->graph->next;
         while(graph != NULL) {
             valueList_t *vl = graph->vl->next;
+            outlog(8, "servergraph.cleanupServerIndex: %s.%s, now=%d, vl->update_time=%d, cutoff=%d\n", server->name, graph->name, now, vl->update_time, cutoff );
             if (vl->update_time < cutoff) {
                 last_graph->next = graph->next;
                 deleteGraph(graph);

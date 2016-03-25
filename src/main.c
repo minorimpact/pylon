@@ -54,7 +54,7 @@ void outlog(int level, char *str, ... ) {
         struct tm *tmp = localtime(&t);
         char outstr[200];
         strftime(outstr, sizeof(outstr), "%Y-%m-%d %T", tmp);
-        printf("%s: ", outstr);
+        printf("%s: %d: ", outstr, level);
         va_start( args, str );
         vprintf(str, args);
         fflush(stdout);
@@ -79,7 +79,9 @@ int setnonblock(int fd) {
 
 void cleanup(struct ev_loop *loop, ev_timer *ev_cleanup, int revents) {
     outlog(7, "main.cleanup: start\n");
+    now = time(NULL);
     if (cleanupServerIndex(server_index, now, opts->cleanup) > 0) {
+        outlog(3, "main.cleanup: cleanup altered data, signalling to abort current dump\n");
         dump_config->abort = 1;
     }
 }

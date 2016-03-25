@@ -12,26 +12,26 @@ PYLON_HOME=/usr/local/pylon
 TMPDIR=/tmp
 
 start() {
-	echo -n $"Starting up pylon server: "
+    echo -n $"Starting up pylon server: "
     $PYLON_HOME/pylon -d -P $TMPDIR/pylon.pid -L $TMPDIR/pylon.log -F $TMPDIR/pylon_dump
-	RETVAL=$?
+    RETVAL=$?
     echo
-	return $RETVAL
+    return $RETVAL
 }
 
 stop() {
-	echo -n $"Shutting down pylon server: "
-	kill `cat $TMPDIR/pylon.pid`
+    echo -n $"Shutting down pylon server: "
+    kill `cat $TMPDIR/pylon.pid`
     rm -f $TMPDIR/pylon.pid
-	RETVAL=$?
+    RETVAL=$?
     echo
-	return $RETVAL
+    return $RETVAL
 }
 
 restart() {
-	stop
+    stop
     sleep 1
-	start
+    start
 }
 
 status() {
@@ -40,21 +40,21 @@ status() {
 
 # See how we were called.
 case "$1" in
-  start)
-	start
-	;;
-  stop)
-	stop
-	;;
-  restart|reload)
-	restart
-	;;
-  status)
-    status
-    ;;
-  *)
-	echo $"Usage: pylon {start|stop|restart|status}"
-	exit 1
+    start)
+        start
+        ;;
+    stop)
+        stop
+        ;;
+    restart|reload)
+        restart
+        ;;
+    status)
+        status
+        ;;
+    *)
+        echo $"Usage: pylon {start|stop|restart|status}"
+        exit 1
 esac
 
 exit $RETVAL

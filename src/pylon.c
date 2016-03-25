@@ -448,11 +448,21 @@ void parseCommand(u_char *input_buf, time_t now, server_t *server_index, vlopts_
 }
 
 void dump_data(dump_config_t *dump_config) {
-    if (dump_config->completed > (time(NULL) - dump_config->dump_interval)) 
+    // Dumping's not even enabled.  Return to base.
+    if (dump_config->enabled == 0) 
         return;
 
+    outlog(7, "pylon.dump_data: start\n");
+    // If it's not time to start a new dump, just reset the abort flag and get out of here.
+    if (dump_config->completed > (time(NULL) - dump_config->dump_interval)) {
+        dump_config->abort = 0;
+        return;
+    }
+
+    // Dump is still in process, but something signalled that we need to kill the in-progress dump.  
+    // Reset everything and return.
     if (dump_config->abort == 1) {
-        outlog(10, "pylon.dump_data: aborting dump\n");
+        outlog(3, "pylon.dump_data: aborting current dump\n");
         close(dump_config->dump_fd);
         dump_config->dump_fd = 0;
         unlink(dump_config->dump_file_tmp);
@@ -462,10 +472,7 @@ void dump_data(dump_config_t *dump_config) {
         dump_config->server = NULL;
         return;
     }
-    if (dump_config->enabled == 0) 
-        return;
 
-    outlog(10, "pylon.dump_data: start\n");
 
     if (dump_config->loading == 1) {
         // Haven't implemented this yet, but I eventually want to move the data loading
