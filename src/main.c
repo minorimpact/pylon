@@ -230,7 +230,7 @@ int main(int argc, char **argv) {
         exit(-1);
     }
     opts->bucket_count = 4;
-    opts->cleanup = 3600;
+    opts->cleanup = 86400;
     opts->buckets[0] = 300;
     opts->buckets[1] = 1800;
     opts->buckets[2] = 7200;
