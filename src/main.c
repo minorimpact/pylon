@@ -393,6 +393,15 @@ int main(int argc, char **argv) {
 
     loop = ev_default_loop(0);
 
+    // Add dumper, if enabled.
+    if (dump_config->dump_file != NULL) {
+        dump_config->enabled = 1;
+        load_data(dump_config, now, opts);
+        ev_idle ev_idle;
+        ev_idle_init(&ev_idle, dump);
+        ev_idle_start(loop, &ev_idle);
+    }
+
     // Add main socket watcher
     ev_io ev_accept;
     ev_io_init(&ev_accept, on_accept, listen_fd, EV_READ);
@@ -402,15 +411,6 @@ int main(int argc, char **argv) {
     ev_timer ev_cleanup;
     ev_timer_init(&ev_cleanup, cleanup, CLEANUP_TIMEOUT, CLEANUP_TIMEOUT );
     ev_timer_start(loop, &ev_cleanup);
-
-    // Add dumper, if enabled.
-    if (dump_config->dump_file != NULL) {
-        dump_config->enabled = 1;
-        load_data(dump_config, now, opts);
-        ev_idle ev_idle;
-        ev_idle_init(&ev_idle, dump);
-        ev_idle_start(loop, &ev_idle);
-    }
 
     outlog(3, "main.main: starting main loop\n");
     ev_run(loop, 0);
