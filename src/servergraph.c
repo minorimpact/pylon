@@ -22,11 +22,11 @@ int cleanupServerIndex(server_t *server_index, time_t now, int cleanup) {
             if (vl->update_time < cutoff) {
                 last_graph->next = graph->next;
                 deleteGraph(graph);
-                graph = last_graph->next;
+                graph = last_graph;
                 change++;
-            } else {
-                graph = graph->next;
             }
+            last_graph = graph;
+            graph = graph->next;
         }
 
         if (server->graph->next == NULL) {

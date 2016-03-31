@@ -293,7 +293,7 @@ sub main {
 
     $result = $pylon->command("status");
     print "$result... ";
-    if ($result =~/servers=2/) { print "OK\n"; } 
+    if ($result =~/servers=2 graphs=4/) { print "OK\n"; } 
     else { die("FAIL\n"); }
 
     foreach (1..3) {
@@ -326,6 +326,39 @@ sub main {
         pause($step);
     }
 
+    $result = $pylon->command("status");
+    print "$result... ";
+    if ($result =~/servers=2 graphs=4/) { print "OK\n"; } 
+    else { die("FAIL\n"); }
+
+
+    foreach (1..3) {
+        print "adding a single value to server1/graph1... ";
+        $result = $pylon->add("server1", "graph1", 99);
+        print "$result\n";
+        unless ($result =~/OK/) { die("FAIL\n"); }
+
+        print "adding a single value to server2/graph2... ";
+        $result = $pylon->add("server2", "graph2", 99);
+        print "$result\n";
+        unless ($result =~/OK/) { die("FAIL\n"); }
+
+        $result = $pylon->command("dump|graph1|server1");
+        print "$result\n";
+        $result = $pylon->command("dump|graph2|server1");
+        print "$result\n";
+        $result = $pylon->command("dump|graph1|server2");
+        print "$result\n";
+        $result = $pylon->command("dump|graph2|server2");
+        print "$result\n";
+        pause($step);
+    }
+
+    $result = $pylon->command("status");
+    print "$result... ";
+    if ($result =~/servers=2 graphs=2/) { print "OK\n"; } 
+    else { die("FAIL\n"); }
+
     foreach (1..3) {
         print "adding a single value to server1/graph1... ";
         $result = $pylon->add("server1", "graph1", 99);
@@ -345,7 +378,7 @@ sub main {
 
     $result = $pylon->command("status");
     print "$result... ";
-    if ($result =~/servers=1/) { print "OK\n"; } 
+    if ($result =~/servers=1 graphs=1/) { print "OK\n"; } 
     else { die("FAIL\n"); }
 }
 
