@@ -42,10 +42,10 @@ sub main {
     }
 
     restart($pylon);
-    print "checking status\n";
     $result = $pylon->command("status");
-    print "$result\n";
+    print "$result... ";
     unless ($result =~/servers=0/) { die("FAIL\n"); } 
+    print "OK\n";
     $pylon->command("loglevel|10");
 
     $pylon->waitForIt({step=>$step});
@@ -59,16 +59,15 @@ sub main {
     my $load_string = "load|graph1|server1|$start_time{$step}|$size|$step|" . join("|", @test);
     print "loading test data\n";
     $result = $pylon->command($load_string);
-    print "$result\n";
+    print "$result... ";
     unless ($result =~/OK/) { die("FAIL\n"); }
 
-    print "checking status\n";
     $result = $pylon->command("status");
-    print "$result\n";
+    print "$result... ";
     if ($result =~/servers=1/) { print "OK\n"; } 
     else { die("FAIL\n"); }
 
-    print "validating graph list.\n";
+    print "validating graph list... ";
     $result = $pylon->command("graphs|server1");
     print "$result\n" if ($debug);
     if ($result eq "graph1") { print "OK\n"; } 
@@ -176,7 +175,7 @@ sub main {
     my @steps = (5, 300, 1800, 7200, 86400);
     my %data;
     foreach my $step (@steps) {
-        print "loading step $step\n";
+        print "loading step $step... ";
         foreach my $pos (1..$size) {
             my $rand = rand(1000000000) + 1000000000;
             push (@{$data->{$step}}, $rand);
@@ -197,13 +196,13 @@ sub main {
         my $rsize = shift @rdata;
         my $rstep = shift @rdata;
         print "count=" . scalar(@rdata) . ",original_data=" . @{$data->{$step}}[$test_pos-1] . ",new_data=" . $rdata[$test_pos-1] . "\n" if ($verbose);
-        print "validating count ($step)\n";
+        print "validating count ($step)... ";
         if (scalar(@rdata) == $size) {
             print "OK\n";
         } else {
             die("FAIL\n");
         }
-        print "validation data ($step)\n";
+        print "validation data ($step)... ";
         if ($rdata[$test_pos-1] <  (@{$data->{$step}}[$test_pos-1] + 1) && $rdata[$test_pos-1] >  (@{$data->{$step}}[$test_pos-1]-1)) {
             print "OK\n";
         } else {
@@ -239,13 +238,13 @@ sub main {
             print "$i,@{$data->{$step}}[$i-1],$rdata[$i-1]\n" if ($debug);
         }
         print "$test_pos/$new_pos,count=" . scalar(@rdata) . ",original_data=" . @{$data->{$step}}[$test_pos-1] . ",new_data=" . $rdata[$new_pos-1] . "\n" if ($verbose);
-        print "validating reloaded count ($step)\n";
+        print "validating reloaded count ($step)... ";
         if (scalar(@rdata) == $size) {
             print "OK\n";
         } else {
             die("FAIL\n");
         }
-        print "validatiing reloaded data ($step)\n";
+        print "validatiing reloaded data ($step)... ";
         if ($rdata[$new_pos-1] <  (@{$data->{$step}}[$test_pos-1] + 1) && $rdata[$new_pos-1] >  (@{$data->{$step}}[$test_pos-1]-1)) {
             print "OK\n";
         } else {
@@ -264,63 +263,88 @@ sub main {
     print "OK\n";
 
     my $load_string = "load|graph1|server1|" . (time() - ($step*$size)) . "|$size|$step|" . join("|", 1..$size);
-    print "loading test data for server 1\n";
+    print "loading test data for server 1... ";
     print "$load_string\n";
     $result = $pylon->command($load_string);
     print "$result\n";
     unless ($result =~/OK/) { die("FAIL\n"); }
 
-    print "loading test data for server 2\n";
+    $load_string =~s/graph1/graph2/;
+    print "loading test data for server 1... ";
+    print "$load_string\n";
+    $result = $pylon->command($load_string);
+    print "$result\n";
+    unless ($result =~/OK/) { die("FAIL\n"); }
+
+    print "loading test data for server 2... ";
     $load_string =~s/server1/server2/;
+    $load_string =~s/graph2/graph1/;
+    print "$load_string\n";
+    $result = $pylon->command($load_string);
+    print "$result\n";
+    unless ($result =~/OK/) { die("FAIL\n"); }
+
+    print "loading test data for server 2... ";
+    $load_string =~s/graph1/graph2/;
     print "$load_string\n";
     $result = $pylon->command($load_string);
     print "$result\n";
     unless ($result =~/OK/) { die("FAIL\n"); }
 
     $result = $pylon->command("status");
-    print "$result\n";
+    print "$result... ";
     if ($result =~/servers=2/) { print "OK\n"; } 
     else { die("FAIL\n"); }
 
     foreach (1..3) {
-        print "adding a single value to server1\n";
+        print "adding a single value to server1/graph1... ";
         $result = $pylon->add("server1", "graph1", 99);
         print "$result\n";
         unless ($result =~/OK/) { die("FAIL\n"); }
+        print "adding a single value to server1/graph2... ";
+        $result = $pylon->add("server1", "graph2", 99);
+        print "$result\n";
+        unless ($result =~/OK/) { die("FAIL\n"); }
 
-        print "adding a single value to server2\n";
+        print "adding a single value to server2/graph1... ";
         $result = $pylon->add("server2", "graph1", 99);
+        print "$result\n";
+        unless ($result =~/OK/) { die("FAIL\n"); }
+        print "adding a single value to server2/graph2... ";
+        $result = $pylon->add("server2", "graph2", 99);
         print "$result\n";
         unless ($result =~/OK/) { die("FAIL\n"); }
 
         $result = $pylon->command("dump|graph1|server1");
         print "$result\n";
+        $result = $pylon->command("dump|graph2|server1");
+        print "$result\n";
         $result = $pylon->command("dump|graph1|server2");
+        print "$result\n";
+        $result = $pylon->command("dump|graph2|server2");
         print "$result\n";
         pause($step);
     }
 
     foreach (1..3) {
-        print "adding a single value to server1\n";
+        print "adding a single value to server1/graph1... ";
         $result = $pylon->add("server1", "graph1", 99);
         print "$result\n";
         unless ($result =~/OK/) { die("FAIL\n"); }
 
         $result = $pylon->command("dump|graph1|server1");
         print "$result\n";
+        $result = $pylon->command("dump|graph2|server1");
+        print "$result\n";
         $result = $pylon->command("dump|graph1|server2");
+        print "$result\n";
+        $result = $pylon->command("dump|graph2|server2");
         print "$result\n";
         pause($step);
     }
 
-    #pause($step 5);
-    #print "forcing a cleanup\n";
-    #$result = $pylon->command("cleanup|0");
-    #print "$result\n";
-    #die("FAIL\n") unless ($result eq "OK");
-    print "checking status\n";
     $result = $pylon->command("status");
-    print "$result\n";
+    print "$result... ";
     if ($result =~/servers=1/) { print "OK\n"; } 
     else { die("FAIL\n"); }
 }
@@ -338,12 +362,12 @@ sub pause {
 sub restart {
     my $pylon = shift || return;
     $pylon->stop();
-    print "checking status\n";
     eval {
         $result = $pylon->command("status");
     };
-    print "$result\n";
+    print "$result... ";
     if ($result) { die("FAIL\n"); } 
+    print "OK\n";
 
     unlink($log_file);
     unlink($dump_file);
