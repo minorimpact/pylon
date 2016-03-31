@@ -358,48 +358,62 @@ valueList_t *loadData(server_t *server_index, char *server_id, char *graph_id, t
     outlog(7, "servergraph.loadData: start server_id=%s,graph_id=%s,size=%d,step=%d\n",server_id, graph_id, size, step);
     graph_t *graph = getServerGraphByName(server_index, server_id, graph_id, 1);
     valueList_t *vl = graph->vl->next;
+
+    // This server has no data at all, add the default buckets.
     if (vl == NULL) {
-        valueList_t *last_vl = graph->vl;
-        int i;
-        for (i=0; i < bucket_count; i++) {
-            valueList_t *vl2 = newValueList(size, steps[i], now);
+        outlog(10, "servergraph.loadData: add default buckets for server_id=%s\n", server_id);
+        int i = 0;
+        valueList_t *vl2 = newValueList(size, steps[i], now);
+        graph->vl->next = vl2;
+        valueList_t *last_vl = vl2;
+        for (i=1; i < bucket_count; i++) {
+            vl2 = newValueList(size, steps[i], now);
             last_vl->next = vl2;
             last_vl = vl2;
         }
         vl = graph->vl->next;
-
-        graph->vl->next = vl;
     }
 
-    valueList_t *last_vl = graph->vl;
+    valueList_t *last_vl = NULL;
 
     while (vl != NULL) {
         if (step == vl->step) {
             break;
         }
         if (step < vl->step) {
+            outlog(10, "servergraph.loadData: new valuelist step(%d) < vl->step(%d) for server_id=%s\n", step, vl->step, server_id);
+            valueList_t *new_vl = newValueList(size, step, now);
             if (last_vl == NULL) {
+                outlog(10, "servergraph.loadData: last_vl = NULL for server_id=%s\n", server_id);
                 // Loading data that's smaller than the smallest valuelist, so insert a new one at the beginning.
-                valueList_t *new_vl = newValueList(size, step, now);
-                new_vl->next = vl;
-                vl = new_vl;
-                last_vl->next = vl;
+                graph->vl->next = new_vl;
             } else {
-                valueList_t *new_vl = newValueList(size, step, now);
-                new_vl->next = vl;
+                outlog(10, "servergraph.loadData: last_vl != NULL for server_id=%s\n", server_id);
                 last_vl->next = new_vl;
-                vl = new_vl;
             }
+            new_vl->next = vl;
+            vl = new_vl;
             break;
         }
-
         last_vl = vl;
         vl = vl->next;
     }
     if (vl == NULL) {
         vl = newValueList(size, step, now);
-        last_vl->next = vl;
+        if (last_vl == NULL) {
+            graph->vl->next = vl;
+        } else {
+            last_vl->next = vl;
+        }
     }
+
+    valueList_t *test_vl = graph->vl->next;
+    while (test_vl != NULL)  {
+        outlog(10, "servergraph.loadData: server_id=%s, test_vl.step=%d, test_vl->size=%d\n", server_id, test_vl->step, test_vl->size);
+        test_vl = test_vl->next;
+    }
+
+    outlog(10, "servergraph.localData: server_id=%s, vl->step=%d, vl->size=%d\n", server_id, vl->step, vl->size);
     loadValueList(vl, first, size, step, data);
     return vl;
 }
@@ -407,7 +421,7 @@ valueList_t *loadData(server_t *server_index, char *server_id, char *graph_id, t
 void dumpGraph(graph_t *graph, char *servername, time_t now, char *output_buf) {
     valueList_t *vl = graph->vl->next;
     while (vl != NULL) {
-        outlog(8, "servergraph.dumpGraph: strlen (%s/%s) output_buf %d\n", graph->name, servername, strlen(output_buf));
+        outlog(8, "servergraph.dumpGraph: strlen (%s/%s:%d) output_buf %d\n", graph->name, servername, vl->step, strlen(output_buf));
         dumpValueList(graph->name, servername, vl, now, output_buf);
         vl = vl->next;
     }

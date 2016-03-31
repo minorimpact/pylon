@@ -308,11 +308,11 @@ void parseCommand(u_char *input_buf, time_t now, server_t *server_index, vlopts_
 
         opts->loglevel = atoi(loglevel_s);
         strcpy(output_buf, "OK\n");
-    } else if (strcmp(command, "options") == 0) {
+    } else if (strcmp(command, "options") == 0 || strcmp(command, "config") == 0) {
         outlog(5, "pylon.parseCommand: options\n");
         char tmp_str[512];
 
-        sprintf(tmp_str, "cleanup=%d max_buckets=%d bucket_size=%d bucket_count=%d loglevel=%d dump_interval=%d\n", opts->cleanup, opts->max_buckets, opts->bucket_size, opts->bucket_count, opts->loglevel, dump_config->dump_interval);
+        sprintf(tmp_str, "cleanup=%d max_buckets=%d bucket_size=%d bucket_count=%d loglevel=%d dump_interval=%d cleanup_interval=%f\n", opts->cleanup, opts->max_buckets, opts->bucket_size, opts->bucket_count, opts->loglevel, dump_config->dump_interval, opts->cleanup_interval);
 
         strcpy(output_buf, tmp_str);
     } else if (strcmp(command, "placeholder") == 0) {

@@ -4,9 +4,9 @@
 #define SERVER_PORT 5555
 #define MAX_BUCKETS 6
 #define BUCKET_SIZE 575
-#define CLEANUP_TIMEOUT 300.
+#define CLEANUP_TIMEOUT 300.0
 #define DUMP_INTERVAL 10
-#define VERSION "0.0.40-2"
+#define VERSION "0.0.41-2"
 
 /* Length of each buffer in the buffer queue.  Also becomes the amount
  * of data we try to read per call to read(2). */
@@ -44,6 +44,7 @@ typedef struct vlopts {
     int bucket_count;
     int *buckets;
     int cleanup;
+    double cleanup_interval;
     int loglevel;
 } vlopts_t;
 

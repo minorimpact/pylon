@@ -22,6 +22,9 @@ our $debug = $options->{debug} || 0;
 our $verbose = $options->{verbose} || $debug;
 my $pylon = new Pylon({verbose=>$verbose, debug=>$debug});
 
+my $dump_file = "/tmp/pylon_dump";
+my $log_file = "/tmp/pylon.log";
+
 main();
 
 sub main {
@@ -31,7 +34,6 @@ sub main {
     my $add_value1 = 5755;
     my $add_value2 = 5765;
     my $test_pos = int(rand($size - 10)) + 10;
-    my $dump_file = "/tmp/pylon_dump";
 
     unless ($options->{force}) {
         print "Running this script will remove all data from pylon. Continue? ";
@@ -39,16 +41,7 @@ sub main {
         die unless ($confirm =~/^y/i);
     }
 
-    $pylon->stop();
-    print "checking status\n";
-    eval {
-        $result = $pylon->command("status");
-    };
-    print "$result\n";
-    if ($result) { die("FAIL\n"); } 
-
-    unlink($dump_file);
-    $pylon->start();
+    restart($pylon);
     print "checking status\n";
     $result = $pylon->command("status");
     print "$result\n";
@@ -260,38 +253,101 @@ sub main {
         }
     }
 
-    my $cleanup_time = 10;
-    print "reseting server\n";
-    $pylon->command("reset");
-    print "setting cleanup time to $cleanup_time seconds\n";
-    $pylon->command("loglevel|10");
-    $pylon->command("cleanup|$cleanup_time");
+    $step = 10;
+    $size = 10;
+
+    restart($pylon);
+    print "setting cleanup time to ". ($step*2) . " seconds\n";
+    $pylon->command("cleanup|" . ($step * 2));
     $options = $pylon->options();
-    die("FAIL\n") unless ($cleanup_time == $options->{cleanup});
+    die("FAIL\n") unless ($options->{cleanup} == ($step * 2));
     print "OK\n";
 
-    print "Adding test server data\n";
-    $pylon->add("server1", "graph1", $cleanup_time);
+    my $load_string = "load|graph1|server1|" . (time() - ($step*$size)) . "|$size|$step|" . join("|", 1..$size);
+    print "loading test data for server 1\n";
+    print "$load_string\n";
+    $result = $pylon->command($load_string);
+    print "$result\n";
+    unless ($result =~/OK/) { die("FAIL\n"); }
+
+    print "loading test data for server 2\n";
+    $load_string =~s/server1/server2/;
+    print "$load_string\n";
+    $result = $pylon->command($load_string);
+    print "$result\n";
+    unless ($result =~/OK/) { die("FAIL\n"); }
+
+    $result = $pylon->command("status");
+    print "$result\n";
+    if ($result =~/servers=2/) { print "OK\n"; } 
+    else { die("FAIL\n"); }
+
+    foreach (1..3) {
+        print "adding a single value to server1\n";
+        $result = $pylon->add("server1", "graph1", 99);
+        print "$result\n";
+        unless ($result =~/OK/) { die("FAIL\n"); }
+
+        print "adding a single value to server2\n";
+        $result = $pylon->add("server2", "graph1", 99);
+        print "$result\n";
+        unless ($result =~/OK/) { die("FAIL\n"); }
+
+        $result = $pylon->command("dump|graph1|server1");
+        print "$result\n";
+        $result = $pylon->command("dump|graph1|server2");
+        print "$result\n";
+        pause($step);
+    }
+
+    foreach (1..3) {
+        print "adding a single value to server1\n";
+        $result = $pylon->add("server1", "graph1", 99);
+        print "$result\n";
+        unless ($result =~/OK/) { die("FAIL\n"); }
+
+        $result = $pylon->command("dump|graph1|server1");
+        print "$result\n";
+        $result = $pylon->command("dump|graph1|server2");
+        print "$result\n";
+        pause($step);
+    }
+
+    #pause($step 5);
+    #print "forcing a cleanup\n";
+    #$result = $pylon->command("cleanup|0");
+    #print "$result\n";
+    #die("FAIL\n") unless ($result eq "OK");
     print "checking status\n";
     $result = $pylon->command("status");
     print "$result\n";
     if ($result =~/servers=1/) { print "OK\n"; } 
     else { die("FAIL\n"); }
+}
 
+sub pause {
+    my $time = shift || return;
     print "waiting for timeout\n";
-    for (my $i=$cleanup_time + 5; $i>0;$i--) {
+    for (my $i = $time; $i>0;$i--) {
         print " " if ($i < 10); print "$i\r"; sleep(1);
     }
     print "\n";
 
-    print "forcing a cleanup\n";
-    $result = $pylon->command("cleanup|0");
-    print "$result\n";
-    die("FAIL\n") unless ($result eq "OK");
-    print "checking status\n";
-    $result = $pylon->command("status");
-    print "$result\n";
-    if ($result =~/servers=0/) { print "OK\n"; } 
-    else { die("FAIL\n"); }
 }
 
+sub restart {
+    my $pylon = shift || return;
+    $pylon->stop();
+    print "checking status\n";
+    eval {
+        $result = $pylon->command("status");
+    };
+    print "$result\n";
+    if ($result) { die("FAIL\n"); } 
+
+    unlink($log_file);
+    unlink($dump_file);
+    $pylon->start();
+    $pylon->waitForIt({step=>$step});
+    $pylon->command("loglevel|10");
+}

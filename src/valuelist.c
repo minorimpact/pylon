@@ -26,7 +26,7 @@ valueList_t *newValueList(int size, int step, time_t now) {
     vl->first = now - (now % step) - (step * (size - 1));
     vl->step = step;
     vl->size = size;
-    vl->update_time = 0;
+    vl->update_time = now;
     vl->update_value = 0.0/0.0;
     vl->update_counter_value = 0.0/0.0;
 

@@ -167,8 +167,9 @@ void on_accept(struct ev_loop *loop, ev_io *ev_accept, int revents) {
 
 void usage(void) {
     printf("usage: pylon <options>\n");
-    printf("version: %s-le\n", VERSION);
-    printf( "-d            run as a daemon\n"
+    printf("version: %s\n", VERSION);
+    printf( "-c <int>      cleanup graphs that haven't been updated at least <int> seconds.\n"
+            "-d            run as a daemon\n"
             "-D <int>      wait <int> seconds after completing a dump to file before starting a new dump\n"
             "-F <file>     dump data to <file>\n"
             "-h            print this message and exit\n"
@@ -231,6 +232,7 @@ int main(int argc, char **argv) {
     }
     opts->bucket_count = 4;
     opts->cleanup = 86400;
+    opts->cleanup_interval = CLEANUP_TIMEOUT;
     opts->buckets[0] = 300;
     opts->buckets[1] = 1800;
     opts->buckets[2] = 7200;
@@ -257,10 +259,13 @@ int main(int argc, char **argv) {
     char *pid_file = "/var/run/pylon.pid";
     char *log_file = "/var/log/pylon.log";
 
-    while ((c = getopt(argc, argv, "hdP:s:c:l:L:F:vD:")) != -1) {
+    while ((c = getopt(argc, argv, "hdP:s:c:C:l:L:F:vD:")) != -1) {
         switch (c) {
             case 'c':
                 opts->cleanup = atoi(optarg);
+                break;
+            case 'C':
+                opts->cleanup_interval = atof(optarg);
                 break;
             case 'D':
                 dump_config->dump_interval = atoi(optarg);
@@ -355,6 +360,7 @@ int main(int argc, char **argv) {
         outlog(1, "main.main: malloc stats FAILED\n");
         exit(-1);
     }
+    stats->connections = 0;
     stats->commands = 0;
     stats->gets = 0;
     stats->adds = 0;
@@ -409,7 +415,7 @@ int main(int argc, char **argv) {
 
     // Add cleanup timer
     ev_timer ev_cleanup;
-    ev_timer_init(&ev_cleanup, cleanup, CLEANUP_TIMEOUT, CLEANUP_TIMEOUT );
+    ev_timer_init(&ev_cleanup, cleanup, opts->cleanup_interval, opts->cleanup_interval );
     ev_timer_start(loop, &ev_cleanup);
 
     outlog(3, "main.main: starting main loop\n");
