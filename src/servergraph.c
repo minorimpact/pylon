@@ -8,14 +8,14 @@
 
 int cleanupServerIndex(server_t *server_index, time_t now, int cleanup) {
     server_t *last_server = server_index;
-    server_t *server = server_index->next;
+    server_t *server = last_server->next;
     time_t cutoff = now - cleanup;
     int change = 0;
 
     outlog(7, "servergraph.cleanupServerIndex: start\n");
     while(server != NULL) {
         graph_t *last_graph = server->graph;
-        graph_t *graph = server->graph->next;
+        graph_t *graph = last_graph->next;
         while(graph != NULL) {
             valueList_t *vl = graph->vl->next;
             outlog(8, "servergraph.cleanupServerIndex: %s.%s, now=%d, vl->update_time=%d, cutoff=%d\n", server->name, graph->name, now, vl->update_time, cutoff );
@@ -26,17 +26,17 @@ int cleanupServerIndex(server_t *server_index, time_t now, int cleanup) {
                 change++;
             }
             last_graph = graph;
-            graph = graph->next;
+            graph = last_graph->next;
         }
 
         if (server->graph->next == NULL) {
             last_server->next = server->next;
             deleteServer(server);
-            server = last_server->next;
+            server = last_server;
             change++;
-        } else {
-            server = server->next;
         }
+        last_server = server;
+        server = last_server->next;
     }
     return change;
 }

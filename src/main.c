@@ -168,16 +168,15 @@ void on_accept(struct ev_loop *loop, ev_io *ev_accept, int revents) {
 void usage(void) {
     printf("usage: pylon <options>\n");
     printf("version: %s\n", VERSION);
-    printf( "-c <int>      cleanup graphs that haven't been updated at least <int> seconds.\n"
+    printf( "-c <int>      cleanup graphs that haven't been updated at least <int> seconds. (default: 86400)\n"
+            "-C <int>      Run the cleanup function every <int> seconds. (default: 300)\n"
             "-d            run as a daemon\n"
-            "-D <int>      wait <int> seconds after completing a dump to file before starting a new dump\n"
-            "-F <file>     dump data to <file>\n"
+            "-D <int>      wait <int> seconds after completing a dump to file before starting a new dump. (default: 10)\n"
+            "-F <file>     dump data to <file> (default: none)\n"
             "-h            print this message and exit\n"
-            "-l <int>      set logging level to <int> (1-10)\n"
-            "-L <file>     log to <file>\n"
-            "              default: /var/log/pylon.log\n"
-            "-P <file>     save PID in <file>, only used with -d option\n"
-            "              default: /var/run/pylon.pid\n"
+            "-l <int>      set logging level to <int> (1-10) (default: 5)\n"
+            "-L <file>     log to <file> (default: /var/log/pylon.log)\n"
+            "-P <file>     save PID in <file>, only used with -d option. (default: /var/run/pylon.pid)"
             "-v            output version information\n"
         );
     return;
