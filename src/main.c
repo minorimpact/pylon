@@ -176,7 +176,7 @@ void usage(void) {
             "-h            print this message and exit\n"
             "-l <int>      set logging level to <int> (1-10) (default: 5)\n"
             "-L <file>     log to <file> (default: /var/log/pylon.log)\n"
-            "-P <file>     save PID in <file>, only used with -d option. (default: /var/run/pylon.pid)"
+            "-P <file>     save PID in <file>, only used with -d option. (default: /var/run/pylon.pid)\n"
             "-v            output version information\n"
         );
     return;

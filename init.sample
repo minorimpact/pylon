@@ -8,12 +8,13 @@
 . /etc/init.d/functions
 
 RETVAL=0
-PYLON_HOME=/usr/local/pylon
-TMPDIR=/tmp
+BINDIR=/usr/local/bin
+PIDFILE=/var/run/pylon.pid
+LOGFILE=/var/log/pylon.log
 
 start() {
     echo -n $"Starting up pylon server: "
-    $PYLON_HOME/pylon -d -P $TMPDIR/pylon.pid -L $TMPDIR/pylon.log -F $TMPDIR/pylon_dump
+    $BINDIR/pylon -d 
     RETVAL=$?
     echo
     return $RETVAL
@@ -21,8 +22,8 @@ start() {
 
 stop() {
     echo -n $"Shutting down pylon server: "
-    kill `cat $TMPDIR/pylon.pid`
-    rm -f $TMPDIR/pylon.pid
+    kill `cat $PIDFILE`
+    rm -f $PIDFILE
     RETVAL=$?
     echo
     return $RETVAL
@@ -35,7 +36,7 @@ restart() {
 }
 
 status() {
-    $PYLON_HOME/pylonstatus.pl
+    $BINDIR/pylonstatus.pl
 }
 
 # See how we were called.

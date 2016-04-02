@@ -1,0 +1,44 @@
+.\" Manpage for pylon.
+.TH man 8 "01 Apr 2016" "0.0.42-1" "pylon man page"
+.SH NAME
+pylon - Pylon graph data server
+.SH SYNOPSIS
+.SH DESCRIPTION
+.SH OPTIONS
+.TP
+.BR "-c \fIcleanup\fR"
+cleanup graphs that haven't been updated at least \fIcleanup\fR seconds. (default: 86400)
+.TP
+.BR "-C \fIinterval\fR"
+Run the cleanup function every \fIinterval\fR seconds. (default: 300)
+.TP
+.BR "-d"
+run as a daemon
+.TP
+.BR "-D \fIdump\fR"
+wait \fIdump\fR seconds after completing a dump to file before starting a new dump. (default: 10)
+.TP
+.BR "-F \fIfile\fR"
+dump data to \fFfile\fR (default: none)
+.TP
+.BR "-h, -?"
+Display usage.
+.TP
+.BR "-l=\fIloglevel\fR"
+set logging level to \fIloglevel\fR (1-10) (default: 5)
+.TP
+.BR "-L \fIfile\fR"    
+log to \fIfile\fR (default: /var/log/pylon.log)
+.TP
+.BR "-P \fIfile\fR"
+save PID in \fIfile\fR, only used with -d option. (default: /var/run/pylon.pid)
+.TP
+.B "-v"
+output version information
+.SH SEE ALSO
+.TP
+\fIpylonstatus.pl\fR(8)
+.SH BUGS
+No known bugs.
+.SH AUTHOR
+Patrick Gillan (pgillan@minorimpact.com)
