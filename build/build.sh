@@ -74,9 +74,8 @@ then
     #unless we specified arch to rpmbuild we must try to find where rpmbuild wrote the file
     ARCH_DIR=`rpmbuild --showrc |grep "^build arch" | /bin/cut -d':' -f2`;
     ARCH_DIR="${ARCH_DIR##*( )}"
-    echo $ARCH_DIR
     cd $HOME
-    RPM="$PACKAGE_NAME-$RELEASE."
+    RPM="$PACKAGE_NAME-$RELEASE"
     cp rpmbuild/RPMS/${ARCH_DIR}/${RPM}.${ARCH_DIR}.rpm $RELEASE_DIR/
     createrepo -s sha $RELEASE_DIR
 fi
