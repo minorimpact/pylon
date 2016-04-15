@@ -1,6 +1,6 @@
 Name: pylon
 Version: 0.0.42 
-Release: 1
+Release: 2%{?dist}
 Summary: Fast graphing service
 Epoch: 0
 
