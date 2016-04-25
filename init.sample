@@ -10,11 +10,12 @@
 RETVAL=0
 BINDIR=/usr/local/bin
 PIDFILE=/var/run/pylon.pid
-LOGFILE=/var/log/pylon.log
+LOGFILE=/tmp/pylon.log
+DUMPFILE=/tmp/pylon_dump
 
 start() {
     echo -n $"Starting up pylon server: "
-    $BINDIR/pylon -d 
+    $BINDIR/pylon -d -L $LOGFILE -F $DUMPFILE
     RETVAL=$?
     echo
     return $RETVAL
