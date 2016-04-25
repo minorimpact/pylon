@@ -1,6 +1,6 @@
 Name: pylon
 Version: 0.0.42 
-Release: 2%{?dist}
+Release: 3%{?dist}
 Summary: Fast graphing service
 Epoch: 0
 
@@ -45,6 +45,8 @@ rm -rf ./debugfiles.list ./debuglinks.list ./debugsources.list
 /usr/local/man/man8/pylonstatus.pl.8.gz
 
 %changelog
+* Mon Apr 25 2016 <ahall@ffn.com> 0.0.42-3
+- Updates to init file
 * Thu Apr 14 2016 <ahall@ffn.com> 0.0.42-1
 - initial packaging
 
