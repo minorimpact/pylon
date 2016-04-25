@@ -38,6 +38,7 @@ restart() {
 
 status() {
     $BINDIR/pylonstatus.pl
+    RETVAL=$?
 }
 
 # See how we were called.
